@@ -13,6 +13,10 @@ import { haptic } from '@/lib/haptics';
 import { scheduleNotifications, getScheduledCount, requestPermissions } from '@/lib/notifications';
 import { downloadYouTubeAudio, listDownloadedSounds, deleteDownloadedSound } from '@/lib/youtubeAudio';
 import { exportAllData, importData, getStorageSize, clearAllData } from '@/lib/dataExport';
+import { manualBackup, restoreFromCloud } from '@/lib/autoBackup';
+import { useAuthStore } from '@/store/useAuthStore';
+import { STORE_KEYS } from '@/store/keys';
+import AsyncStorageLib from '@react-native-async-storage/async-storage';
 import { xpForLevel } from '@/types/models';
 
 import { Screen, SectionLabel, PrimaryButton, GhostButton, DangerButton } from '@/components/ui';
@@ -315,6 +319,16 @@ export default function SettingsScreen() {
   const [ytProgress, setYtProgress] = useState('');
   const [downloads, setDownloads] = useState<{ name: string; uri: string }[]>([]);
   const [storageInfo, setStorageInfo] = useState('Calculating...');
+  const [backingUp, setBackingUp] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
+  // Auth state
+  const authUser = useAuthStore((s) => s.user);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const logout = useAuthStore((s) => s.logout);
+  const autoBackupEnabled = useAuthStore((s) => s.autoBackupEnabled);
+  const setAutoBackup = useAuthStore((s) => s.setAutoBackup);
+  const lastBackupAt = useAuthStore((s) => s.lastBackupAt);
 
   useEffect(() => {
     setDownloads(listDownloadedSounds());
@@ -455,6 +469,74 @@ export default function SettingsScreen() {
     { icon: '📅', label: 'Weekly Review', route: '/weekly-review' },
   ];
 
+  const handleManualBackup = async () => {
+    setBackingUp(true);
+    const ok = await manualBackup();
+    setBackingUp(false);
+    if (ok) {
+      haptic.success();
+      Alert.alert('Backup Complete', 'Your data has been saved to the cloud.');
+    } else {
+      Alert.alert('Backup Failed', 'Could not upload backup. Check your connection.');
+    }
+  };
+
+  const handleRestore = async () => {
+    Alert.alert(
+      'Restore from Cloud',
+      'This will replace all local data with your latest cloud backup. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: async () => {
+            setRestoring(true);
+            const data = await restoreFromCloud();
+            if (!data) {
+              setRestoring(false);
+              Alert.alert('No Backup', 'No cloud backup found for your account.');
+              return;
+            }
+            // Write each store back to AsyncStorage
+            const pairs: [string, string][] = [];
+            const storeMap: Record<string, string> = {
+              [STORE_KEYS.reflector]: 'reflector',
+              [STORE_KEYS.journal]: 'journal',
+              [STORE_KEYS.focus]: 'focus',
+              [STORE_KEYS.gamification]: 'gamification',
+            };
+            for (const [key, field] of Object.entries(storeMap)) {
+              if ((data as Record<string, unknown>)[field]) {
+                pairs.push([key, JSON.stringify((data as Record<string, unknown>)[field])]);
+              }
+            }
+            if (pairs.length > 0) {
+              await AsyncStorageLib.multiSet(pairs);
+            }
+            setRestoring(false);
+            haptic.success();
+            Alert.alert('Restored', 'Data restored from cloud. Restart the app for changes to take effect.');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLogout = () => {
+    Alert.alert('Log Out', 'You will need to log in again to sync your data.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Out', style: 'destructive', onPress: () => { logout(); router.replace('/login'); } },
+    ]);
+  };
+
+  const formatBackupDate = (ts: number | null) => {
+    if (!ts) return 'Never';
+    return new Date(ts).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  };
+
   return (
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
@@ -475,6 +557,44 @@ export default function SettingsScreen() {
             )}
             <MemberSince>Member since {memberStr}</MemberSince>
           </ProfileCard>
+
+          {/* Account */}
+          {isLoggedIn && authUser && (
+            <>
+              <SectionLabel>ACCOUNT</SectionLabel>
+              <SettingRow>
+                <SettingLabel>@{authUser.username}</SettingLabel>
+                <HintText style={{ marginBottom: 0 }}>{authUser.display_name}</HintText>
+              </SettingRow>
+            </>
+          )}
+
+          {/* Cloud Backup */}
+          {isLoggedIn && (
+            <>
+              <SectionLabel>CLOUD BACKUP</SectionLabel>
+              <HintText>Last backup: {formatBackupDate(lastBackupAt)}</HintText>
+              <SettingRow>
+                <SettingLabel>Auto-Sync Daily</SettingLabel>
+                <Switch
+                  value={autoBackupEnabled}
+                  onValueChange={setAutoBackup}
+                  trackColor={{ false: COLORS.border, true: COLORS.crimson }}
+                  thumbColor={COLORS.white}
+                />
+              </SettingRow>
+              <PrimaryButton
+                onPress={handleManualBackup}
+                label={backingUp ? 'BACKING UP...' : 'BACKUP NOW'}
+                style={{ marginTop: 12 }}
+              />
+              <GhostButton
+                onPress={handleRestore}
+                label={restoring ? 'RESTORING...' : 'RESTORE FROM CLOUD'}
+                style={{ marginTop: 12 }}
+              />
+            </>
+          )}
 
           {/* Quick Links */}
           <SectionLabel>QUICK LINKS</SectionLabel>
@@ -597,6 +717,14 @@ export default function SettingsScreen() {
           <GhostButton onPress={handleImport} label="IMPORT DATA" style={{ marginTop: 12 }} />
           <GhostButton onPress={handleClearOldTodos} label="CLEAR OLD TASKS" style={{ marginTop: 12 }} />
           <DangerButton onPress={handleResetAll} label="RESET ALL DATA" style={{ marginTop: 12 }} />
+
+          {/* Logout */}
+          {isLoggedIn && (
+            <>
+              <SectionLabel>SESSION</SectionLabel>
+              <DangerButton onPress={handleLogout} label="LOG OUT" style={{ marginTop: 4 }} />
+            </>
+          )}
 
           {/* About */}
           <AboutText>The Reflector v1.0.0{'\n'}Built with intention.</AboutText>

@@ -26,6 +26,8 @@ import {
 
 import { useReflectorStore } from '@/store/useReflectorStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { checkAutoBackup } from '@/lib/autoBackup';
 import { COLORS } from '@/constants/theme';
 import { scheduleNotifications } from '@/lib/notifications';
 import { ensureAlarmChannel, registerNotifeeBackgroundHandler } from '@/lib/alarmNotifee';
@@ -295,6 +297,7 @@ const ReflectorTheme = {
 
 function RootLayoutNav() {
   const router = useRouter();
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const hasOnboarded = useGamificationStore((s) => s.hasOnboarded);
   const setOnboarded = useGamificationStore((s) => s.setOnboarded);
   const grids = useReflectorStore((s) => s.grids);
@@ -412,12 +415,23 @@ function RootLayoutNav() {
     return unsub;
   }, []);
 
-  // Onboarding redirect
+  // Auth gate + onboarding redirect
   useEffect(() => {
+    if (!isLoggedIn) {
+      router.replace('/login');
+      return;
+    }
     if (!hasOnboarded) {
       router.replace('/onboarding');
     }
-  }, [hasOnboarded]);
+  }, [isLoggedIn, hasOnboarded]);
+
+  // Auto-backup on app open
+  useEffect(() => {
+    if (isLoggedIn) {
+      checkAutoBackup();
+    }
+  }, [isLoggedIn]);
 
   // On mount: scan for missed days, enforce hard resets, schedule notifications
   useEffect(() => {
@@ -549,6 +563,13 @@ function RootLayoutNav() {
         />
         <Drawer.Screen
           name="onboarding"
+          options={{
+            headerShown: false,
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+        <Drawer.Screen
+          name="login"
           options={{
             headerShown: false,
             drawerItemStyle: { display: 'none' },
