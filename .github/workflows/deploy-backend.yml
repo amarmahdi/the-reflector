@@ -1,0 +1,40 @@
+name: Deploy Backend to DigitalOcean
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'   # Only trigger when backend code changes
+
+jobs:
+  deploy:
+    name: SSH Deploy to Droplet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            set -e
+            echo "=== Pulling latest code ==="
+            cd /opt/the-reflector
+            git pull origin main
+
+            echo "=== Installing/updating dependencies ==="
+            cd backend
+            source venv/bin/activate
+            pip install -r requirements.txt -q
+
+            echo "=== Running DB migrations ==="
+            alembic upgrade head
+
+            echo "=== Restarting server ==="
+            systemctl restart reflector-api
+
+            echo "=== Health check ==="
+            sleep 3
+            curl -sf http://localhost:8000/health && echo "✅ Deployment successful!" || echo "❌ Health check failed"
