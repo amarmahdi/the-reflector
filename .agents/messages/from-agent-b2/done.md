@@ -20,8 +20,11 @@
 |---|---|
 | `app/main.py` | Wired auth router with `app.include_router(auth_router, prefix="/auth", tags=["Auth"])` |
 | `.env` | Generated real SECRET_KEY (64-char hex) |
+| `requirements.txt` | Added `bcrypt==4.2.1` (used directly, not through passlib) |
+| `bootstrap.sh` | Removed hardcoded secrets (replaced with placeholders) |
+| `.gitignore` | Fixed recursive `__pycache__` exclusion |
 
-## Endpoints Verified
+## Endpoints Verified (localhost → live DB)
 
 | Endpoint | Method | Auth | Status | Test Result |
 |---|---|---|---|---|
@@ -43,6 +46,10 @@
 - Usernames are auto-lowercased on registration and login
 - `password_hash` column is String(128) — bcrypt hashes are 60 chars, fits fine
 - `get_current_user` dependency is exported from `app.core.deps` for other agents (B3, etc.)
+
+## Deployment Note
+
+⚠️ GitHub Actions deploy (`deploy-backend.yml`) is **failing on the `alembic upgrade head` step** — this is a pre-existing issue (the previous deploy before my changes also failed). The code was **pushed to main** and is correct. The server at `142.93.148.160` still runs the old code that only has `/health`. The CI/CD pipeline may need the `DATABASE_URL` env var to be set for Alembic's sync driver, or `psycopg2-binary` needs to be installed in the server's venv.
 
 ## Dependencies for Other Agents
 
