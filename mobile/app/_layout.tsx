@@ -575,6 +575,13 @@ function RootLayoutNav() {
             drawerItemStyle: { display: 'none' },
           }}
         />
+        <Drawer.Screen
+          name="pact"
+          options={{
+            headerShown: false,
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
       </Drawer>
       <AchievementToast achievement={toastAchievement} onDismiss={handleToastDismiss} />
       {tierTransition && (
