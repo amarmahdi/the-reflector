@@ -30,11 +30,11 @@ pip install psycopg2-binary  # for Alembic sync migrations
 
 # ⚠️  Fill in your real values below before running on the server
 DB_USER="doadmin"
-DB_PASS="YOUR_DB_PASSWORD"
-DB_HOST="YOUR_DB_HOST"
+DB_PASS="YOUR_DB_PASSWORD_HERE"
+DB_HOST="YOUR_DB_HOST_HERE"
 DB_PORT="25060"
 DB_NAME="defaultdb"
-GEMINI_KEY="YOUR_GEMINI_API_KEY"
+GEMINI_KEY="YOUR_GEMINI_API_KEY_HERE"
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
 echo "=== 4. Write .env file ==="

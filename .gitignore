@@ -12,7 +12,7 @@ mobile/ios/
 mobile/.metro-health-check*
 
 # Backend ignores
-backend/__pycache__/
+backend/**/__pycache__/
 backend/droplet.txt
 backend/db_connection.txt
 backend/.env
