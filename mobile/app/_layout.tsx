@@ -43,9 +43,9 @@ import type { Achievement } from '@/types/models';
 import { xpForLevel } from '@/types/models';
 import { seedTestData } from '@/lib/seedData';
 
-// Register Notifee handlers at module level (required)
+
+// Register Notifee background handler at module level (required)
 registerNotifeeBackgroundHandler();
-registerNotifeeForegroundHandler();
 
 export {
   ErrorBoundary,
@@ -336,6 +336,35 @@ function RootLayoutNav() {
       setToastAchievement(achievement);
     });
     return () => registerToastCallback(null);
+  }, []);
+
+  // Handle alarm notifications — navigate to /alarm when alarm fires
+  // We ONLY use Notifee for alarms, so any Notifee event = alarm
+  useEffect(() => {
+    // Check if app was opened by tapping an alarm notification
+    (async () => {
+      const initialNotification = await notifee.getInitialNotification();
+      if (initialNotification) {
+        router.replace('/alarm' as any);
+      }
+    })();
+
+    // Listen for alarm events while app is in foreground
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.DELIVERED) {
+        // Alarm trigger fired while app is open — go to alarm screen NOW
+        router.push('/alarm' as any);
+      }
+      if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
+        // User tapped alarm notification — go to alarm screen
+        router.push('/alarm' as any);
+        if (detail.notification?.id) {
+          notifee.cancelNotification(detail.notification.id);
+        }
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
   // Detect tier changes
