@@ -14,22 +14,46 @@ import notifee, {
 import { Platform } from 'react-native';
 
 const ALARM_CHANNEL_ID = 'reflector-alarm-v3';
+const ACTIVITY_CLASS = 'com.anonymous.thereflector.MainActivity';
+
+/**
+ * Shared notification config for alarm display.
+ * Used by both the trigger notification and the re-displayed immediate notification.
+ */
+function alarmNotificationConfig(title: string, body: string) {
+  return {
+    title,
+    body,
+    android: {
+      channelId: ALARM_CHANNEL_ID,
+      category: AndroidCategory.ALARM,
+      importance: AndroidImportance.HIGH,
+      visibility: AndroidVisibility.PUBLIC,
+      asForegroundService: true,
+      fullScreenAction: {
+        id: 'wake-alarm',
+        launchActivity: ACTIVITY_CLASS,
+      },
+      ongoing: true,
+      autoCancel: false,
+      pressAction: {
+        id: 'wake-alarm',
+        launchActivity: ACTIVITY_CLASS,
+      },
+      lights: ['#FF0000', 500, 500] as [string, number, number],
+      vibrationPattern: [0, 1000, 500, 1000, 500, 1000],
+    },
+  };
+}
 
 /**
  * Check + request exact alarm permission (required on Android 12+).
- * Returns true if permission is granted.
  */
 export async function ensureExactAlarmPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
-
   try {
     const settings = await notifee.getNotificationSettings();
-    const alarmStatus = settings.android.alarm;
-
-    if (alarmStatus === AndroidNotificationSetting.ENABLED) {
-      return true;
-    }
-
+    if (settings.android.alarm === AndroidNotificationSetting.ENABLED) return true;
     console.warn('[ALARM] Exact alarm permission: NOT GRANTED — opening settings');
     await notifee.openAlarmPermissionSettings();
     return false;
@@ -41,11 +65,9 @@ export async function ensureExactAlarmPermission(): Promise<boolean> {
 
 /**
  * Create the high-priority alarm notification channel.
- * Must be called before any alarm notification is displayed.
  */
 export async function ensureAlarmChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
-
   try {
     await notifee.createChannel({
       id: ALARM_CHANNEL_ID,
@@ -63,34 +85,18 @@ export async function ensureAlarmChannel(): Promise<void> {
 }
 
 /**
- * Fire the alarm immediately — wakes the device, pops over the lock screen.
+ * Fire the alarm immediately.
  */
 export async function fireAlarmNotifee(label?: string): Promise<void> {
   if (Platform.OS !== 'android') return;
-
   await ensureAlarmChannel();
-
   try {
-    await notifee.displayNotification({
-      title: label ?? 'WAKE UP, REFLECTOR.',
-      body: 'Your alarm is going off. Face it.',
-      android: {
-        channelId: ALARM_CHANNEL_ID,
-        category: AndroidCategory.ALARM,
-        importance: AndroidImportance.HIGH,
-        visibility: AndroidVisibility.PUBLIC,
-        fullScreenAction: {
-          id: 'wake-alarm',
-          launchActivity: 'default',
-        },
-        ongoing: true,
-        autoCancel: false,
-        pressAction: {
-          id: 'wake-alarm',
-          launchActivity: 'default',
-        },
-      },
-    });
+    await notifee.displayNotification(
+      alarmNotificationConfig(
+        label ?? 'WAKE UP, REFLECTOR.',
+        'Your alarm is going off. Face it.'
+      )
+    );
     console.log('[ALARM] Immediate alarm fired');
   } catch (e) {
     console.error('[ALARM] Failed to fire immediate alarm:', e);
@@ -98,8 +104,7 @@ export async function fireAlarmNotifee(label?: string): Promise<void> {
 }
 
 /**
- * Schedule an alarm at a specific hour:minute using Notifee trigger.
- * Returns the notification ID so it can be cancelled individually.
+ * Schedule an alarm at a specific hour:minute.
  */
 export async function scheduleAlarmNotifee(
   hour: number,
@@ -109,14 +114,9 @@ export async function scheduleAlarmNotifee(
 ): Promise<string | null> {
   if (Platform.OS !== 'android') return null;
 
-  const hasPermission = await ensureExactAlarmPermission();
-  if (!hasPermission) {
-    console.warn('[ALARM] Skipping schedule — no exact alarm permission');
-  }
-
+  await ensureExactAlarmPermission();
   await ensureAlarmChannel();
 
-  // Compute next occurrence
   const now = new Date();
   const target = new Date();
   target.setHours(hour, minute, 0, 0);
@@ -125,27 +125,11 @@ export async function scheduleAlarmNotifee(
   }
 
   try {
+    const config = alarmNotificationConfig(label, 'Time to check in. Open The Reflector.');
     const notifId = await notifee.createTriggerNotification(
       {
         ...(id ? { id } : {}),
-        title: label,
-        body: 'Time to check in. Open The Reflector.',
-        android: {
-          channelId: ALARM_CHANNEL_ID,
-          category: AndroidCategory.ALARM,
-          importance: AndroidImportance.HIGH,
-          visibility: AndroidVisibility.PUBLIC,
-          fullScreenAction: {
-            id: 'wake-alarm',
-            launchActivity: 'default',
-          },
-          ongoing: true,
-          autoCancel: false,
-          pressAction: {
-            id: 'wake-alarm',
-            launchActivity: 'default',
-          },
-        },
+        ...config,
       },
       {
         type: TriggerType.TIMESTAMP,
@@ -171,6 +155,9 @@ export async function scheduleAlarmNotifee(
 export async function cancelAlarmNotifee(): Promise<void> {
   if (Platform.OS !== 'android') return;
   try {
+    await notifee.stopForegroundService();
+  } catch {}
+  try {
     await notifee.cancelAllNotifications();
     await notifee.cancelTriggerNotifications();
     console.log('[ALARM] All alarms cancelled');
@@ -180,100 +167,34 @@ export async function cancelAlarmNotifee(): Promise<void> {
 }
 
 /**
- * Register Notifee background event handler.
- * Must be called at module level (outside of any component).
- *
- * When a scheduled trigger fires in the background, the DELIVERED event
- * re-displays an IMMEDIATE full-screen notification. This is what makes
- * the alarm pop over the lock screen and wake the device — trigger
- * notifications alone only show in the notification shade.
+ * Background event handler — runs in headless JS when app is killed.
+ * When the scheduled trigger fires, it re-displays an IMMEDIATE
+ * foreground-service notification to force the device to wake up.
  */
 export function registerNotifeeBackgroundHandler(): void {
   notifee.onBackgroundEvent(async ({ type, detail }) => {
     console.log('[ALARM] Background event:', type, detail.notification?.title);
 
     if (type === EventType.DELIVERED) {
-      // Trigger notification was delivered — re-display as immediate
-      // full-screen alarm notification to wake device / show over apps
-      console.log('[ALARM] Trigger DELIVERED — firing full-screen alarm');
+      console.log('[ALARM] Trigger DELIVERED — firing foreground-service alarm');
       try {
         await ensureAlarmChannel();
-        await notifee.displayNotification({
-          title: detail.notification?.title ?? 'WAKE UP, REFLECTOR.',
-          body: detail.notification?.body ?? 'Your alarm is going off. Face it.',
-          android: {
-            channelId: ALARM_CHANNEL_ID,
-            category: AndroidCategory.ALARM,
-            importance: AndroidImportance.HIGH,
-            visibility: AndroidVisibility.PUBLIC,
-            fullScreenAction: {
-              id: 'wake-alarm',
-              launchActivity: 'default',
-            },
-            ongoing: true,
-            autoCancel: false,
-            pressAction: {
-              id: 'wake-alarm',
-              launchActivity: 'default',
-            },
-            // Keep the screen on and show over lock screen
-            lights: ['#FF0000', 500, 500],
-            vibrationPattern: [0, 500, 200, 500, 200, 500],
-          },
-        });
+        await notifee.displayNotification(
+          alarmNotificationConfig(
+            detail.notification?.title ?? 'WAKE UP, REFLECTOR.',
+            detail.notification?.body ?? 'Your alarm is going off. Face it.'
+          )
+        );
       } catch (e) {
         console.error('[ALARM] Background display failed:', e);
       }
     }
 
     if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
-      // User tapped the alarm — dismiss it
       if (detail.notification?.id) {
         await notifee.cancelNotification(detail.notification.id);
       }
-      // Cancel all to clean up
-      await notifee.cancelAllNotifications();
-    }
-  });
-}
-
-/**
- * Register foreground event handler.
- * When alarm fires while app is open, this handles it.
- */
-export function registerNotifeeForegroundHandler(): void {
-  notifee.onForegroundEvent(async ({ type, detail }) => {
-    if (type === EventType.DELIVERED) {
-      console.log('[ALARM] Foreground DELIVERED — alarm fired while app open');
-      // Re-display to ensure it pops up
-      await ensureAlarmChannel();
-      await notifee.displayNotification({
-        title: detail.notification?.title ?? 'WAKE UP, REFLECTOR.',
-        body: detail.notification?.body ?? 'Your alarm is going off.',
-        android: {
-          channelId: ALARM_CHANNEL_ID,
-          category: AndroidCategory.ALARM,
-          importance: AndroidImportance.HIGH,
-          visibility: AndroidVisibility.PUBLIC,
-          fullScreenAction: {
-            id: 'wake-alarm',
-            launchActivity: 'default',
-          },
-          ongoing: true,
-          autoCancel: false,
-          pressAction: {
-            id: 'wake-alarm',
-            launchActivity: 'default',
-          },
-          vibrationPattern: [0, 500, 200, 500, 200, 500],
-        },
-      });
-    }
-
-    if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
-      if (detail.notification?.id) {
-        await notifee.cancelNotification(detail.notification.id);
-      }
+      try { await notifee.stopForegroundService(); } catch {}
       await notifee.cancelAllNotifications();
     }
   });

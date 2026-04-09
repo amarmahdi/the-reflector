@@ -30,7 +30,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { checkAutoBackup } from '@/lib/autoBackup';
 import { COLORS } from '@/constants/theme';
 import { scheduleAllAlarms } from '@/lib/notifications';
-import { ensureAlarmChannel, registerNotifeeBackgroundHandler, registerNotifeeForegroundHandler } from '@/lib/alarmNotifee';
+import { ensureAlarmChannel, registerNotifeeBackgroundHandler } from '@/lib/alarmNotifee';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerToastCallback, triggerDisciplineCalculation } from '@/lib/appActions';
 import { ACHIEVEMENT_DEFINITIONS } from '@/lib/achievements';
@@ -43,9 +43,16 @@ import type { Achievement } from '@/types/models';
 import { xpForLevel } from '@/types/models';
 import { seedTestData } from '@/lib/seedData';
 
-
-// Register Notifee background handler at module level (required)
+// Register Notifee handlers at module level (required before any notification fires)
 registerNotifeeBackgroundHandler();
+
+// Register foreground service handler (required for asForegroundService notifications)
+notifee.registerForegroundService(() => {
+  return new Promise(() => {
+    // Keep the service alive until the alarm is dismissed
+    // The promise is resolved when cancelAlarmNotifee() stops the service
+  });
+});
 
 export {
   ErrorBoundary,
@@ -341,22 +348,24 @@ function RootLayoutNav() {
   // Handle alarm notifications — navigate to /alarm when alarm fires
   // We ONLY use Notifee for alarms, so any Notifee event = alarm
   useEffect(() => {
-    // Check if app was opened by tapping an alarm notification
-    (async () => {
+    // Check if app was opened by an alarm notification (cold start)
+    const checkInitial = async () => {
       const initialNotification = await notifee.getInitialNotification();
       if (initialNotification) {
-        router.replace('/alarm' as any);
+        // Wait for router to be fully ready, then navigate
+        setTimeout(() => {
+          router.replace('/alarm' as any);
+        }, 500);
       }
-    })();
+    };
+    checkInitial();
 
     // Listen for alarm events while app is in foreground
     const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
       if (type === EventType.DELIVERED) {
-        // Alarm trigger fired while app is open — go to alarm screen NOW
         router.push('/alarm' as any);
       }
       if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
-        // User tapped alarm notification — go to alarm screen
         router.push('/alarm' as any);
         if (detail.notification?.id) {
           notifee.cancelNotification(detail.notification.id);
