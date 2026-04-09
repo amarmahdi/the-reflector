@@ -37,6 +37,7 @@ import { useTodayFocusMinutes } from '@/hooks/useStoreData';
 import { onDayCompleted, onTaskCompleted } from '@/lib/appActions';
 import { formatTimeHHMM, getFormattedDate, getGreeting, isAfter5PM } from '@/lib/dateUtils';
 import { haptic } from '@/lib/haptics';
+import { getCachedOracleVerdict } from '@/lib/oracle';
 import { useAlarmStore } from '@/store/useAlarmStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { useJournalStore } from '@/store/useJournalStore';
@@ -146,6 +147,41 @@ const QuoteText = styled.Text`
   line-height: 18px;
 `;
 
+// Oracle Teaser
+const OracleTeaserCard = styled.Pressable`
+  background-color: ${COLORS.surface1};
+  border-width: 1px;
+  border-color: ${COLORS.border};
+  border-left-width: 3px;
+  border-left-color: ${COLORS.warmRed};
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 0 20px 16px;
+`;
+
+const OracleTeaserLabel = styled.Text`
+  color: ${COLORS.warmRed};
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  margin-bottom: 6px;
+`;
+
+const OracleTeaserText = styled.Text`
+  color: ${COLORS.textSecondary};
+  font-size: 13px;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 20px;
+`;
+
+const OracleTeaserLink = styled.Text`
+  color: ${COLORS.warmRed};
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-top: 8px;
+`;
 // Section label
 // Focus hero card
 const HeroCard = styled.View`
@@ -694,6 +730,23 @@ export default function HomeScreen() {
 
   // TODO: S5 will add context-aware line here
 
+  // Oracle teaser (Sun/Mon only, cached verdict)
+  const [oracleTeaser, setOracleTeaser] = useState<string | null>(null);
+  useEffect(() => {
+    const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon
+    if (dayOfWeek === 0 || dayOfWeek === 1) {
+      getCachedOracleVerdict()
+        .then((verdict) => {
+          if (verdict) {
+            // Extract first sentence for the teaser
+            const firstSentence = verdict.split(/(?<=[.!?])\s/)[0] || verdict;
+            setOracleTeaser(firstSentence);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   // Today
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -860,6 +913,20 @@ export default function HomeScreen() {
 
           {/* ─── 3b. Ghost of Yesterday ─── */}
           <GhostCard />
+
+          {/* ─── 3c. Oracle Teaser (Sun/Mon) ─── */}
+          {oracleTeaser && (
+            <OracleTeaserCard
+              onPress={() => {
+                haptic.light();
+                router.push('/weekly-review' as any);
+              }}
+            >
+              <OracleTeaserLabel>THE ORACLE SPEAKS</OracleTeaserLabel>
+              <OracleTeaserText>{oracleTeaser}</OracleTeaserText>
+              <OracleTeaserLink>Read the full verdict →</OracleTeaserLink>
+            </OracleTeaserCard>
+          )}
 
           {/* ─── 4. Your Focus Hero Card ─── */}
           <SectionLabel>YOUR FOCUS</SectionLabel>

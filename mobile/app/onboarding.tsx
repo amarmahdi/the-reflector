@@ -1,347 +1,531 @@
-import { useRef, useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  ScrollView,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
   Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import styled from 'styled-components/native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
-  withRepeat,
-  withSequence,
+  runOnJS,
   Easing,
+  type SharedValue,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
-import { COLORS } from '@/constants/theme';
-import { PrimaryButton } from '@/components/ui';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/theme';
 import { useGamificationStore } from '@/store/useGamificationStore';
+import { haptic } from '@/lib/haptics';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// ── Styled Components ────────────────────────────────────────────────────────
-
-const Container = styled.View`
-  flex: 1;
-  background-color: ${COLORS.surface0};
-`;
-
-const SkipButton = styled.Pressable`
-  position: absolute;
-  top: 60px;
-  right: 24px;
-  z-index: 10;
-  padding: 8px 16px;
-`;
-
-const SkipText = styled.Text`
-  color: ${COLORS.textDim};
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 1px;
-`;
-
-const Page = styled.View`
-  width: ${SCREEN_WIDTH}px;
-  height: ${SCREEN_HEIGHT}px;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 36px;
-`;
-
-const DotsContainer = styled.View`
-  position: absolute;
-  bottom: 60px;
-  left: 0;
-  right: 0;
-  flex-direction: row;
-  justify-content: center;
-  gap: 10px;
-  z-index: 10;
-`;
-
-const Dot = styled.View<{ active: boolean }>`
-  width: ${({ active }: { active: boolean }) => (active ? 28 : 8)}px;
-  height: 8px;
-  border-radius: 4px;
-  background-color: ${({ active }: { active: boolean }) =>
-    active ? COLORS.crimson : COLORS.border};
-`;
-
-// Page 1 styles
-const BigTitle = styled.Text`
-  color: ${COLORS.textPrimary};
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-align: center;
-  line-height: 44px;
-`;
-
-const BigTitleAccent = styled.Text`
-  color: ${COLORS.crimson};
-`;
-
-const Subtitle = styled.Text`
-  color: ${COLORS.textSecondary};
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  text-align: center;
-  margin-top: 16px;
-  line-height: 22px;
-`;
-
-// Page 2 styles
-const PageTitle = styled.Text`
-  color: ${COLORS.textPrimary};
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-align: center;
-  margin-bottom: 24px;
-`;
-
-const GridContainer = styled.View`
-  flex-direction: row;
-  flex-wrap: wrap;
-  width: 200px;
-  gap: 4px;
-  justify-content: center;
-  margin-bottom: 32px;
-`;
-
-const GridCell = styled.View<{ filled: boolean; scarred: boolean }>`
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  background-color: ${({
-    filled,
-    scarred,
-  }: {
-    filled: boolean;
-    scarred: boolean;
-  }) =>
-    scarred
-      ? COLORS.surface3
-      : filled
-        ? COLORS.crimson
-        : COLORS.surface2};
-  border-width: 1px;
-  border-color: ${({
-    filled,
-    scarred,
-  }: {
-    filled: boolean;
-    scarred: boolean;
-  }) =>
-    scarred
-      ? COLORS.textDim
-      : filled
-        ? COLORS.crimson
-        : COLORS.border};
-`;
-
-const PageBody = styled.Text`
-  color: ${COLORS.textSecondary};
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 24px;
-  text-align: center;
-  max-width: 300px;
-`;
-
-const BodyAccent = styled.Text`
-  color: ${COLORS.crimson};
-  font-weight: 700;
-`;
-
-
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ── Decorative Mini Grid ─────────────────────────────────────────────────────
 
 const GRID_PATTERN: ('filled' | 'scar' | 'empty')[] = [
   'filled', 'filled', 'filled', 'filled', 'filled', 'filled', 'filled', 'filled',
-  'filled', 'filled', 'filled', 'scar', 'filled', 'filled', 'filled', 'filled',
-  'filled', 'filled', 'filled', 'filled', 'filled', 'scar', 'filled', 'filled',
-  'filled', 'filled', 'filled', 'filled', 'empty', 'empty', 'empty', 'empty',
-  'empty', 'empty', 'empty', 'empty', 'empty', 'empty', 'empty', 'empty',
+  'filled', 'filled', 'filled', 'scar',   'filled', 'filled', 'filled', 'filled',
+  'filled', 'filled', 'filled', 'filled', 'filled', 'scar',   'filled', 'filled',
+  'filled', 'filled', 'filled', 'filled', 'empty',  'empty',  'empty',  'empty',
+  'empty',  'empty',  'empty',  'empty',  'empty',  'empty',  'empty',  'empty',
 ];
 
-// ── Pulsing Text Component ──────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────────────────────
 
-function PulsingText({ children }: { children: string }) {
-  const opacity = useSharedValue(1);
-
-  useEffect(() => {
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  return (
-    <Animated.Text
-      style={[
-        {
-          color: COLORS.crimson,
-          fontSize: 24,
-          fontWeight: '700',
-          letterSpacing: 2,
-          marginTop: 24,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </Animated.Text>
-  );
-}
-
-// ── Fade-In Wrapper ─────────────────────────────────────────────────────────
-
-function FadeInView({ delay = 0, children }: { delay?: number; children: React.ReactNode }) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(20);
-
-  useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1, { duration: 700 }));
-    translateY.value = withDelay(delay, withTiming(0, { duration: 700 }));
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  return <Animated.View style={style}>{children}</Animated.View>;
-}
+const HOLD_DURATION_MS = 2000;
+const MIN_WHY_CHARS = 20;
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
-  const scrollRef = useRef<ScrollView>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const setOnboarded = useGamificationStore((s) => s.setOnboarded);
+  const [step, setStep] = useState(1);
   const router = useRouter();
 
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    setCurrentPage(page);
-  };
+  const setOnboarded = useGamificationStore((s) => s.setOnboarded);
+  const setUserWhy = useGamificationStore((s) => s.setUserWhy);
 
-  const handleFinish = () => {
-    setOnboarded();
-    router.replace('/');
-  };
+  // ── Transition animation ──
+  const screenOpacity = useSharedValue(1);
+
+  const screenAnimStyle = useAnimatedStyle(() => ({
+    opacity: screenOpacity.value,
+  }));
+
+  const transitionTo = useCallback(
+    (nextStep: number) => {
+      screenOpacity.value = withTiming(0, { duration: 500 }, (finished) => {
+        if (finished) {
+          runOnJS(setStep)(nextStep);
+          screenOpacity.value = withTiming(1, { duration: 500 });
+        }
+      });
+    },
+    [screenOpacity],
+  );
 
   return (
-    <Container>
-      <SkipButton onPress={handleFinish}>
-        <SkipText>Skip</SkipText>
-      </SkipButton>
-
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        bounces={false}
-      >
-        {/* Page 1: Welcome */}
-        <Page>
-          <FadeInView delay={300}>
-            <BigTitle>
-              The{'\n'}
-              <BigTitleAccent>Reflector</BigTitleAccent>
-            </BigTitle>
-          </FadeInView>
-          <FadeInView delay={800}>
-            <Subtitle>Discipline is built,{'\n'}not found.</Subtitle>
-          </FadeInView>
-        </Page>
-
-        {/* Page 2: 40-Day Grid */}
-        <Page>
-          <FadeInView delay={0}>
-            <PageTitle>The 40-Day Grid</PageTitle>
-          </FadeInView>
-          <FadeInView delay={200}>
-            <GridContainer>
-              {GRID_PATTERN.map((type, i) => (
-                <GridCell key={i} filled={type === 'filled'} scarred={type === 'scar'} />
-              ))}
-            </GridContainer>
-          </FadeInView>
-          <FadeInView delay={400}>
-            <PageBody>
-              Commit to <BodyAccent>40 days</BodyAccent> of your routine. Each day you complete fills a cell. Miss a day and you earn a <BodyAccent>scar</BodyAccent> — a permanent mark on your grid.
-            </PageBody>
-          </FadeInView>
-        </Page>
-
-        {/* Page 3: Face Your Failures */}
-        <Page>
-          <FadeInView delay={0}>
-            <PageTitle>Face Your Failures</PageTitle>
-          </FadeInView>
-          <FadeInView delay={300}>
-            <PageBody>
-              When you miss a day, you can't just move on. You must <BodyAccent>reflect</BodyAccent> on what went wrong before continuing. No sugarcoating. No excuses.{'\n\n'}The grid stays locked until you face it.
-            </PageBody>
-          </FadeInView>
-          <FadeInView delay={600}>
-            <PulsingText>Face it.</PulsingText>
-          </FadeInView>
-        </Page>
-
-        {/* Page 4: Ready */}
-        <Page>
-          <FadeInView delay={0}>
-            <BigTitle>Ready?</BigTitle>
-          </FadeInView>
-          <FadeInView delay={400}>
-            <Subtitle>
-              No shortcuts.{'\n'}No cheat codes.{'\n'}Just you and the grid.
-            </Subtitle>
-          </FadeInView>
-          <FadeInView delay={800}>
-            <PrimaryButton 
-              onPress={handleFinish} 
-              label="Let's begin" 
-              style={{
-                marginTop: 32,
-                shadowColor: COLORS.crimson,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 12,
-                elevation: 8,
-              }}
-            />
-          </FadeInView>
-        </Page>
-      </ScrollView>
-
-      <DotsContainer>
-        {[0, 1, 2, 3].map((i) => (
-          <Dot key={i} active={currentPage === i} />
-        ))}
-      </DotsContainer>
-    </Container>
+    <View style={s.root}>
+      <Animated.View style={[s.container, screenAnimStyle]}>
+        {step === 1 && (
+          <StepWhy
+            onContinue={(why) => {
+              setUserWhy(why);
+              transitionTo(2);
+            }}
+          />
+        )}
+        {step === 2 && <StepGrid onContinue={() => transitionTo(3)} />}
+        {step === 3 && <StepWarning onContinue={() => transitionTo(4)} />}
+        {step === 4 && (
+          <StepCommitment
+            onComplete={() => {
+              setOnboarded();
+              router.replace('/');
+            }}
+          />
+        )}
+      </Animated.View>
+    </View>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Step 1 — "Why Are You Here?"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function StepWhy({ onContinue }: { onContinue: (why: string) => void }) {
+  const [why, setWhy] = useState('');
+  const [focused, setFocused] = useState(false);
+
+  // Staged fade-ins
+  const titleOpacity = useSharedValue(0);
+  const inputOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    titleOpacity.value = withDelay(1000, withTiming(1, { duration: 800 }));
+    inputOpacity.value = withDelay(2000, withTiming(1, { duration: 800 }));
+  }, [titleOpacity, inputOpacity]);
+
+  const titleStyle = useAnimatedStyle(() => ({ opacity: titleOpacity.value }));
+  const inputStyle = useAnimatedStyle(() => ({ opacity: inputOpacity.value }));
+
+  const canContinue = why.trim().length >= MIN_WHY_CHARS;
+
+  // Button animates from dim to crimson when enabled
+  const btnOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    btnOpacity.value = withTiming(canContinue ? 1 : 0, { duration: 400 });
+  }, [canContinue, btnOpacity]);
+
+  const btnAnimStyle = useAnimatedStyle(() => ({ opacity: btnOpacity.value }));
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={s.flex}
+    >
+      <View style={s.centeredContent}>
+        <Animated.Text style={[s.whyTitle, titleStyle]}>
+          Why are you here?
+        </Animated.Text>
+
+        <Animated.View style={[s.inputWrapper, inputStyle]}>
+          <TextInput
+            multiline
+            value={why}
+            onChangeText={setWhy}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder="What are you trying to build? What are you running from?"
+            placeholderTextColor={COLORS.textDim}
+            style={[
+              s.whyInput,
+              focused && s.whyInputFocused,
+            ]}
+          />
+        </Animated.View>
+
+        {canContinue && (
+          <Animated.View style={btnAnimStyle}>
+            <Text
+              style={s.ghostButton}
+              onPress={() => {
+                haptic.light();
+                onContinue(why.trim());
+              }}
+            >
+              Continue
+            </Text>
+          </Animated.View>
+        )}
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Step 2 — "The Grid"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function StepGrid({ onContinue }: { onContinue: () => void }) {
+  const fadeIn = useSharedValue(0);
+
+  useEffect(() => {
+    fadeIn.value = withTiming(1, { duration: 800 });
+  }, [fadeIn]);
+
+  const style = useAnimatedStyle(() => ({ opacity: fadeIn.value }));
+
+  return (
+    <Animated.View style={[s.centeredContent, style]}>
+      {/* Mini grid visualization */}
+      <View style={s.gridContainer}>
+        {GRID_PATTERN.map((type, i) => (
+          <View
+            key={i}
+            style={[
+              s.gridCell,
+              type === 'filled' && s.gridCellFilled,
+              type === 'scar' && s.gridCellScar,
+            ]}
+          />
+        ))}
+      </View>
+
+      {/* Explanation */}
+      <Text style={s.gridBody}>
+        You will commit to{' '}
+        <Text style={s.boldCrimson}>40 days</Text>.{'\n\n'}
+        Each day you honor your word, a cell fills.{'\n\n'}
+        Each day you break it, you earn a{' '}
+        <Text style={s.boldCrimson}>scar</Text> — a permanent mark.
+      </Text>
+
+      <Text
+        style={s.ghostButton}
+        onPress={() => {
+          haptic.light();
+          onContinue();
+        }}
+      >
+        Continue
+      </Text>
+    </Animated.View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Step 3 — "The Warning"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const WARNING_LINES = [
+  'This app will not congratulate you for doing what you should.',
+  'It will remind you when you lie to yourself.',
+  'It will punish your inconsistency.',
+  'And it will remember every failure.',
+];
+
+function StepWarning({ onContinue }: { onContinue: () => void }) {
+  const line0 = useSharedValue(0);
+  const line1 = useSharedValue(0);
+  const line2 = useSharedValue(0);
+  const line3 = useSharedValue(0);
+  const btnOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    // Sequential fade-in: line at 0ms, 2.5s, 4s, 5.5s
+    line0.value = withTiming(1, { duration: 1500 });
+    line1.value = withDelay(2500, withTiming(1, { duration: 1500 }));
+    line2.value = withDelay(4000, withTiming(1, { duration: 1500 }));
+    line3.value = withDelay(5500, withTiming(1, { duration: 1500 }));
+    // Button shows 2 seconds after last line finishes (5500 + 1500 + 2000 = 9000)
+    btnOpacity.value = withDelay(9000, withTiming(1, { duration: 600 }));
+  }, [line0, line1, line2, line3, btnOpacity]);
+
+  const lineValues = [line0, line1, line2, line3];
+
+  return (
+    <View style={s.centeredContent}>
+      {WARNING_LINES.map((text, i) => (
+        <WarningLine key={i} text={text} animValue={lineValues[i]} />
+      ))}
+
+      <WarningButton btnOpacity={btnOpacity} onContinue={onContinue} />
+    </View>
+  );
+}
+
+function WarningLine({
+  text,
+  animValue,
+}: {
+  text: string;
+  animValue: SharedValue<number>;
+}) {
+  const style = useAnimatedStyle(() => ({ opacity: animValue.value }));
+
+  return (
+    <Animated.Text style={[s.warningText, style]}>
+      {text}
+    </Animated.Text>
+  );
+}
+
+function WarningButton({
+  btnOpacity,
+  onContinue,
+}: {
+  btnOpacity: SharedValue<number>;
+  onContinue: () => void;
+}) {
+  const style = useAnimatedStyle(() => ({ opacity: btnOpacity.value }));
+
+  return (
+    <Animated.View style={[s.warningBtnWrap, style]}>
+      <Text
+        style={s.ghostButton}
+        onPress={() => {
+          haptic.light();
+          onContinue();
+        }}
+      >
+        Continue
+      </Text>
+    </Animated.View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Step 4 — "The Commitment"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function StepCommitment({ onComplete }: { onComplete: () => void }) {
+  const [pressing, setPressing] = useState(false);
+
+  const fadeIn = useSharedValue(0);
+  const holdProgress = useSharedValue(0);
+
+  useEffect(() => {
+    fadeIn.value = withTiming(1, { duration: 800 });
+  }, [fadeIn]);
+
+  const containerStyle = useAnimatedStyle(() => ({ opacity: fadeIn.value }));
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${holdProgress.value * 100}%` as `${number}%`,
+  }));
+
+  const handleComplete = useCallback(() => {
+    // Fire haptic.success() 3 times in rapid succession
+    haptic.success();
+    setTimeout(() => haptic.success(), 100);
+    setTimeout(() => haptic.success(), 200);
+    setTimeout(() => onComplete(), 400);
+  }, [onComplete]);
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(HOLD_DURATION_MS)
+    .onBegin(() => {
+      holdProgress.value = withTiming(1, {
+        duration: HOLD_DURATION_MS,
+        easing: Easing.linear,
+      });
+      runOnJS(setPressing)(true);
+    })
+    .onEnd((_event, success) => {
+      if (success) {
+        runOnJS(handleComplete)();
+      } else {
+        holdProgress.value = withTiming(0, { duration: 200 });
+        runOnJS(setPressing)(false);
+      }
+    })
+    .onFinalize((_event, success) => {
+      if (!success) {
+        holdProgress.value = withTiming(0, { duration: 200 });
+        runOnJS(setPressing)(false);
+      }
+    });
+
+  return (
+    <Animated.View style={[s.centeredContent, containerStyle]}>
+      <Text style={s.commitTitle}>Are you ready?</Text>
+      <Text style={s.commitSubtitle}>
+        Once you begin, there is no going back.
+      </Text>
+
+      <GestureDetector gesture={longPressGesture}>
+        <Animated.View style={s.holdBtn}>
+          <Animated.View style={[s.holdProgress, progressStyle]} />
+          <Text style={s.holdBtnText}>
+            {pressing ? 'Hold...' : 'I am ready.'}
+          </Text>
+        </Animated.View>
+      </GestureDetector>
+    </Animated.View>
+  );
+}
+
+// ── Styles ───────────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.surface0,
+  },
+  container: {
+    flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+
+  // Shared centered layout
+  centeredContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 36,
+  },
+
+  // ── Step 1: Why ──
+  whyTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginBottom: SPACING.xxxl,
+  },
+  inputWrapper: {
+    width: '100%',
+    maxWidth: SCREEN_WIDTH - 72,
+  },
+  whyInput: {
+    backgroundColor: COLORS.surface2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.body,
+    fontWeight: TYPOGRAPHY.medium,
+    padding: SPACING.lg,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  whyInputFocused: {
+    borderColor: COLORS.crimson,
+  },
+
+  // ── Ghost Button (shared) ──
+  ghostButton: {
+    color: COLORS.crimson,
+    fontSize: TYPOGRAPHY.body,
+    fontWeight: TYPOGRAPHY.semibold,
+    letterSpacing: TYPOGRAPHY.wide,
+    textAlign: 'center',
+    paddingVertical: SPACING.xl,
+    marginTop: SPACING.xl,
+  },
+
+  // ── Step 2: Grid ──
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: 200,
+    gap: 4,
+    justifyContent: 'center',
+    marginBottom: SPACING.xxxl,
+  },
+  gridCell: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    backgroundColor: COLORS.surface2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  gridCellFilled: {
+    backgroundColor: COLORS.crimson,
+    borderColor: COLORS.crimson,
+  },
+  gridCellScar: {
+    backgroundColor: COLORS.surface3,
+    borderColor: COLORS.textDim,
+  },
+  gridBody: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
+    fontWeight: TYPOGRAPHY.medium,
+    lineHeight: 24,
+    textAlign: 'center',
+    maxWidth: 300,
+  },
+  boldCrimson: {
+    color: COLORS.crimson,
+    fontWeight: '700',
+  },
+
+  // ── Step 3: Warning ──
+  warningText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: SPACING.xxl,
+    maxWidth: 320,
+  },
+  warningBtnWrap: {
+    marginTop: SPACING.xl,
+  },
+
+  // ── Step 4: Commitment ──
+  commitTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  commitSubtitle: {
+    color: COLORS.textDim,
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: SPACING.huge,
+  },
+  holdBtn: {
+    backgroundColor: COLORS.crimson,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.xxxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+    minWidth: 220,
+  },
+  holdProgress: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: RADIUS.lg,
+  },
+  holdBtnText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: TYPOGRAPHY.wide,
+    zIndex: 1,
+  },
+});

@@ -9,6 +9,7 @@ import Animated, {
   withDelay,
   withTiming,
   withSpring,
+  withRepeat,
   Easing,
   FadeIn,
   SlideInDown,
@@ -20,6 +21,7 @@ import { haptic } from '@/lib/haptics';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { computeWeeklyOverview } from '@/lib/unifiedEngine';
 import { MOOD_CONFIG, type JournalMood } from '@/types/models';
+import { fetchOracleVerdict } from '@/lib/oracle';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -296,7 +298,40 @@ const LastIntentionText = styled.Text`
   font-style: italic;
 `;
 
+// Oracle Card
+const OracleCard = styled(Animated.View)`
+  background-color: ${COLORS.surface1};
+  border-width: 1px;
+  border-color: ${COLORS.border};
+  border-left-width: 4px;
+  border-left-color: ${COLORS.warmRed};
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 28px;
+`;
 
+const OracleHeader = styled.Text`
+  color: ${COLORS.warmRed};
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+`;
+
+const OracleBody = styled.Text`
+  color: ${COLORS.textSecondary};
+  font-size: 14px;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 22px;
+`;
+
+const OracleShimmer = styled(Animated.View)`
+  background-color: ${COLORS.surface2};
+  border-radius: 4px;
+  height: 14px;
+  margin-bottom: 8px;
+`;
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -306,6 +341,8 @@ export default function WeeklyReviewScreen() {
 
   const [intention, setIntention] = useState('');
   const [lastIntention, setLastIntention] = useState<string | null>(null);
+  const [oracleVerdict, setOracleVerdict] = useState<string | null>(null);
+  const [oracleLoading, setOracleLoading] = useState(true);
 
   const overview = useMemo(() => computeWeeklyOverview(), []);
 
@@ -317,6 +354,12 @@ export default function WeeklyReviewScreen() {
     AsyncStorage.getItem(STORAGE_KEY_INTENTION).then((val) => {
       if (val) setIntention(val);
     });
+
+    // Fetch Oracle verdict
+    fetchOracleVerdict()
+      .then((verdict) => setOracleVerdict(verdict))
+      .catch(() => setOracleVerdict(null))
+      .finally(() => setOracleLoading(false));
   }, []);
 
   // Score ring animation
@@ -331,6 +374,24 @@ export default function WeeklyReviewScreen() {
   const ringStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${scoreAnim.value * 360}deg` }],
     opacity: scoreAnim.value > 0 ? 1 : 0,
+  }));
+
+  // Oracle glow pulse
+  const oracleGlow = useSharedValue(0.4);
+  useEffect(() => {
+    oracleGlow.value = withRepeat(
+      withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const oracleGlowStyle = useAnimatedStyle(() => ({
+    shadowColor: COLORS.warmRed,
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: oracleGlow.value * 0.6,
+    shadowRadius: 12,
+    elevation: 4,
   }));
 
   // Date range
@@ -374,6 +435,22 @@ export default function WeeklyReviewScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <ContentPad>
+          {/* ─── The Oracle ─── */}
+          {oracleLoading && (
+            <OracleCard entering={FadeIn.duration(300)}>
+              <OracleHeader>THE ORACLE SPEAKS</OracleHeader>
+              <OracleShimmer style={{ width: '90%' }} />
+              <OracleShimmer style={{ width: '75%' }} />
+              <OracleShimmer style={{ width: '60%' }} />
+            </OracleCard>
+          )}
+          {!oracleLoading && oracleVerdict && (
+            <OracleCard entering={FadeIn.delay(200).duration(600)} style={oracleGlowStyle}>
+              <OracleHeader>THE ORACLE SPEAKS</OracleHeader>
+              <OracleBody>{oracleVerdict}</OracleBody>
+            </OracleCard>
+          )}
+
           {/* Score Ring */}
           <ScoreRingContainer>
             <ScoreCircleOuter>

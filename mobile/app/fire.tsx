@@ -1,6 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
+import { Pressable, Text, StyleSheet } from 'react-native';
 import styled from 'styled-components/native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 
 import { useReflectorStore } from '@/store/useReflectorStore';
 import { useJournalStore } from '@/store/useJournalStore';
@@ -10,11 +20,16 @@ import { onJournalEntryCreated, onGridFailed, onDayScarred } from '@/lib/appActi
 import { Screen, PrimaryButton, StyledInput } from '@/components/ui';
 import type { Consequence } from '@/lib/consequenceEngine';
 
+// ── Blood-red background ─────────────────────────────────────────────────────
+
+const FIRE_BG = '#0D0505';
+
 // ── Styled Components (fire-specific) ────────────────────────────────────────
 
 const FireScreen = styled(Screen)`
   justify-content: center;
   padding: ${SPACING.xxxl}px ${SPACING.xxl}px;
+  background-color: ${FIRE_BG};
 `;
 
 const Title = styled.Text`
@@ -65,25 +80,26 @@ const CharCount = styled.Text<{ met: boolean }>`
 `;
 
 const Counter = styled.Text`
-  color: ${COLORS.textDim};
+  color: ${COLORS.warmRed};
   font-size: ${TYPOGRAPHY.caption}px;
-  font-weight: ${TYPOGRAPHY.medium};
+  font-weight: ${TYPOGRAPHY.bold};
   text-align: center;
   margin-top: ${SPACING.xl}px;
+  letter-spacing: ${TYPOGRAPHY.wide}px;
 `;
 
-// Pact reminder card
+// Pact reminder card — aggressive confrontation style
 const PactReminder = styled.View`
-  background-color: ${COLORS.surface1};
-  border-width: 1px;
-  border-color: ${COLORS.gold};
+  background-color: rgba(139, 74, 74, 0.08);
+  border-width: 1.5px;
+  border-color: ${COLORS.warmRed};
   border-radius: ${RADIUS.lg}px;
-  padding: ${SPACING.lg}px;
+  padding: ${SPACING.xl}px;
   margin-bottom: ${SPACING.xxl}px;
 `;
 
 const PactReminderTitle = styled.Text`
-  color: ${COLORS.gold};
+  color: ${COLORS.warmRed};
   font-size: ${TYPOGRAPHY.caption}px;
   font-weight: ${TYPOGRAPHY.bold};
   letter-spacing: ${TYPOGRAPHY.wider}px;
@@ -92,9 +108,9 @@ const PactReminderTitle = styled.Text`
 
 const PactReminderText = styled.Text`
   color: ${COLORS.textSecondary};
-  font-size: ${TYPOGRAPHY.body}px;
+  font-size: 17px;
   font-weight: ${TYPOGRAPHY.medium};
-  line-height: 20px;
+  line-height: 24px;
   font-style: italic;
   margin-bottom: ${SPACING.md}px;
 `;
@@ -111,8 +127,8 @@ const PactReminderLabel = styled.Text`
 
 const PactConfrontation = styled.Text`
   color: ${COLORS.warmRed};
-  font-size: ${TYPOGRAPHY.body}px;
-  font-weight: ${TYPOGRAPHY.semibold};
+  font-size: ${TYPOGRAPHY.subtitle}px;
+  font-weight: ${TYPOGRAPHY.bold};
   margin-top: ${SPACING.md}px;
 `;
 
@@ -144,8 +160,8 @@ const ConsequenceMessage = styled.Text`
 
 const ConsequenceXP = styled.Text`
   color: ${COLORS.warmRed};
-  font-size: ${TYPOGRAPHY.caption}px;
-  font-weight: ${TYPOGRAPHY.bold};
+  font-size: 20px;
+  font-weight: ${TYPOGRAPHY.black};
   letter-spacing: ${TYPOGRAPHY.normal}px;
 `;
 
@@ -163,6 +179,46 @@ export default function TheFireScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reason, setReason] = useState('');
   const [pendingConsequence, setPendingConsequence] = useState<Consequence | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // ── Animations ──
+  const vignetteOpacity = useSharedValue(0.15);
+  const contentOpacity = useSharedValue(0);
+  const consequenceTranslateY = useSharedValue(120);
+  const consequenceOpacity = useSharedValue(0);
+
+  // Pulsing red vignette overlay
+  useEffect(() => {
+    vignetteOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.35, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.15, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      false,
+    );
+  }, [vignetteOpacity]);
+
+  // On-mount haptics + content fade-in
+  useEffect(() => {
+    haptic.warning();
+    const timeout = setTimeout(() => haptic.error(), 500);
+    contentOpacity.value = withTiming(1, { duration: 800 });
+    return () => clearTimeout(timeout);
+  }, [contentOpacity]);
+
+  const vignetteStyle = useAnimatedStyle(() => ({
+    opacity: vignetteOpacity.value,
+  }));
+
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+  }));
+
+  const consequenceStyle = useAnimatedStyle(() => ({
+    opacity: consequenceOpacity.value,
+    transform: [{ translateY: consequenceTranslateY.value }],
+  }));
 
   // Derive scarred entries from raw state
   const now = new Date();
@@ -183,16 +239,30 @@ export default function TheFireScreen() {
     : undefined;
 
   const charsLeft = Math.max(0, REFLECTION_MIN_CHARS - reason.length);
-  const canSubmit = reason.length >= REFLECTION_MIN_CHARS;
+  const canSubmit = reason.length >= REFLECTION_MIN_CHARS && !submitting;
 
   // Find pact for the current grid
   const currentPact = current
     ? pacts.find((p) => p.gridId === current.grid.id)
     : undefined;
 
+  // Animate consequence card in
+  const showConsequenceAnimation = useCallback(() => {
+    consequenceOpacity.value = withTiming(1, { duration: 400 });
+    consequenceTranslateY.value = withSpring(0, {
+      damping: 12,
+      stiffness: 100,
+    });
+    haptic.error();
+  }, [consequenceOpacity, consequenceTranslateY]);
+
   const handleSubmit = async () => {
-    if (!current) return;
-    haptic.medium();
+    if (!current || submitting) return;
+    setSubmitting(true);
+    haptic.error();
+
+    // Brief "Scarred." state before proceeding
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
 
     markDayScarred(current.grid.id, current.day.dayIndex, reason.trim());
 
@@ -215,6 +285,10 @@ export default function TheFireScreen() {
     // Apply consequence (XP penalty + wound tracking + forced reflection flag)
     const consequence = await onDayScarred();
     setPendingConsequence(consequence);
+    setSubmitting(false);
+
+    // Trigger consequence card animation
+    showConsequenceAnimation();
 
     if (checkHardReset(current.grid.id)) {
       failGrid(current.grid.id);
@@ -225,6 +299,9 @@ export default function TheFireScreen() {
   const handleContinue = () => {
     setPendingConsequence(null);
     setReason('');
+    // Reset consequence animation for next entry
+    consequenceTranslateY.value = 120;
+    consequenceOpacity.value = 0;
     if (currentIndex + 1 < scarredEntries.length) {
       setCurrentIndex((prev) => prev + 1);
     } else {
@@ -245,78 +322,137 @@ export default function TheFireScreen() {
 
   return (
     <FireScreen>
-      <Title>You broke a promise.</Title>
-      <Subtitle>
-        Before you continue, you must face what happened.
-        This is not punishment. This is truth.
-      </Subtitle>
+      {/* Pulsing red vignette overlay */}
+      <Animated.View style={[styles.vignette, vignetteStyle]} pointerEvents="none" />
 
-      <RoutineName>{routine?.title ?? 'Unknown Routine'}</RoutineName>
-      <DayLabel>Day {current.day.dayIndex} — Missed</DayLabel>
+      <Animated.View style={[styles.contentWrap, contentStyle]}>
+        <Title>You broke a promise.</Title>
+        <Subtitle>
+          Before you continue, you must face what happened.
+          This is not punishment. This is truth.
+        </Subtitle>
 
-      {/* Pact confrontation — show their own words */}
-      {currentPact && (
-        <PactReminder>
-          <PactReminderTitle>📜 You promised:</PactReminderTitle>
-          <PactReminderText>"{currentPact.why}"</PactReminderText>
+        <RoutineName>{routine?.title ?? 'Unknown Routine'}</RoutineName>
+        <DayLabel>Day {current.day.dayIndex} — Missed</DayLabel>
 
-          <PactReminderLabel>You said you'd sacrifice:</PactReminderLabel>
-          <PactReminderText>"{currentPact.sacrifice}"</PactReminderText>
+        {/* Pact confrontation — show their own words */}
+        {currentPact && (
+          <PactReminder>
+            <PactReminderTitle>📜 You promised:</PactReminderTitle>
+            <PactReminderText>"{currentPact.why}"</PactReminderText>
 
-          <PactConfrontation>Are you giving up on that?</PactConfrontation>
-        </PactReminder>
-      )}
+            <PactReminderLabel>You said you'd sacrifice:</PactReminderLabel>
+            <PactReminderText>"{currentPact.sacrifice}"</PactReminderText>
 
-      {pendingConsequence ? (
-        // Show consequence after reflection is submitted
-        <>
-          <ConsequenceBanner>
-            <ConsequenceTitle>THE COST</ConsequenceTitle>
-            <ConsequenceMessage>{pendingConsequence.message}</ConsequenceMessage>
-            <ConsequenceXP>-{pendingConsequence.xpPenalty} XP</ConsequenceXP>
-          </ConsequenceBanner>
-          <PrimaryButton
-            onPress={handleContinue}
-            label={currentIndex + 1 < scarredEntries.length ? 'Next wound.' : 'Continue'}
-            style={{ marginTop: SPACING.xxl }}
-          />
-        </>
-      ) : (
-        // Show reflection form
-        <>
-          <Prompt>
-            What got in the way? Be honest with yourself.
-          </Prompt>
+            <PactConfrontation>Are you abandoning your word?</PactConfrontation>
+          </PactReminder>
+        )}
 
-          <StyledInput
-            multiline
-            value={reason}
-            onChangeText={setReason}
-            placeholder="What defeated you?"
-            textAlignVertical="top"
-            style={{ minHeight: 120 }}
-          />
+        {pendingConsequence ? (
+          // Show consequence after reflection is submitted — animated
+          <>
+            <Animated.View style={consequenceStyle}>
+              <ConsequenceBanner>
+                <ConsequenceTitle>THE COST</ConsequenceTitle>
+                <ConsequenceMessage>{pendingConsequence.message}</ConsequenceMessage>
+                <ConsequenceXP>-{pendingConsequence.xpPenalty} XP</ConsequenceXP>
+              </ConsequenceBanner>
+            </Animated.View>
+            <PrimaryButton
+              onPress={handleContinue}
+              label={currentIndex + 1 < scarredEntries.length ? 'Next wound.' : 'Continue'}
+              style={{ marginTop: SPACING.xxl }}
+            />
+          </>
+        ) : (
+          // Show reflection form
+          <>
+            <Prompt>
+              What got in the way? Be honest with yourself.
+            </Prompt>
 
-          <CharCount met={canSubmit}>
-            {canSubmit
-              ? 'Minimum met'
-              : `${charsLeft} more character${charsLeft !== 1 ? 's' : ''} needed`}
-          </CharCount>
+            <StyledInput
+              multiline
+              value={reason}
+              onChangeText={setReason}
+              placeholder="What defeated you?"
+              textAlignVertical="top"
+              style={styles.reflectionInput}
+            />
 
-          <PrimaryButton
-            onPress={handleSubmit}
-            label="I accept this scar."
-            disabled={!canSubmit}
-            style={{ marginTop: SPACING.xxl }}
-          />
+            <CharCount met={canSubmit}>
+              {canSubmit
+                ? 'Minimum met'
+                : `${charsLeft} more character${charsLeft !== 1 ? 's' : ''} needed`}
+            </CharCount>
 
-          {scarredEntries.length > 1 && (
-            <Counter>
-              {currentIndex + 1} of {scarredEntries.length} reflections
-            </Counter>
-          )}
-        </>
-      )}
+            <Pressable
+              onPress={handleSubmit}
+              disabled={!canSubmit}
+              style={[
+                styles.submitBtn,
+                !canSubmit && styles.submitBtnDisabled,
+                canSubmit && styles.submitBtnEnabled,
+              ]}
+            >
+              <Text style={styles.submitBtnText}>
+                {submitting ? 'Scarred.' : 'I accept this scar.'}
+              </Text>
+            </Pressable>
+
+            {scarredEntries.length > 1 && (
+              <Counter>
+                Wound {currentIndex + 1} of {scarredEntries.length}
+              </Counter>
+            )}
+          </>
+        )}
+      </Animated.View>
     </FireScreen>
   );
 }
+
+// ── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  vignette: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(80, 10, 10, 0.3)',
+  },
+  contentWrap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  reflectionInput: {
+    minHeight: 160,
+    borderColor: 'rgba(139, 74, 74, 0.3)',
+  },
+  submitBtn: {
+    backgroundColor: COLORS.warmRed,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xxl,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    marginTop: SPACING.xxl,
+  },
+  submitBtnDisabled: {
+    opacity: 0.4,
+  },
+  submitBtnEnabled: {
+    shadowColor: COLORS.warmRed,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  submitBtnText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.caption,
+    fontWeight: TYPOGRAPHY.bold,
+    letterSpacing: TYPOGRAPHY.wide,
+  },
+});

@@ -20,6 +20,7 @@ export interface GamificationState {
   userStats: UserStats;
   achievements: Achievement[];
   hasOnboarded: boolean;
+  userWhy: string;
   wounds: WoundTracker;
 
   // XP & Leveling
@@ -42,6 +43,7 @@ export interface GamificationState {
 
   // Onboarding
   setOnboarded: () => void;
+  setUserWhy: (why: string) => void;
 }
 
 export const useGamificationStore = create<GamificationState>()(
@@ -50,6 +52,7 @@ export const useGamificationStore = create<GamificationState>()(
       userStats: DEFAULT_USER_STATS,
       achievements: [],
       hasOnboarded: false,
+      userWhy: '',
       wounds: DEFAULT_WOUND_TRACKER,
 
       addXP: (amount) => {
@@ -118,6 +121,10 @@ export const useGamificationStore = create<GamificationState>()(
 
       setOnboarded: () => {
         set({ hasOnboarded: true });
+      },
+
+      setUserWhy: (why) => {
+        set({ userWhy: why });
       },
 
       recordMiss: () => {
