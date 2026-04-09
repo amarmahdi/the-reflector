@@ -103,7 +103,8 @@ export default function LoginScreen() {
         await register(cleanUsername, displayName.trim(), password);
       }
       haptic.success();
-      router.replace('/');
+      // Don't navigate — _layout.tsx auth gate will handle
+      // routing to /onboarding or / based on hasOnboarded
     } catch (e: unknown) {
       haptic.error();
       setError(e instanceof Error ? e.message : 'Something went wrong.');
