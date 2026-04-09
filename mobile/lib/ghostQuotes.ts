@@ -32,15 +32,27 @@ function getDailyIndex(arr: string[]): number {
   return seed % arr.length;
 }
 
-export function getMissQuote(): string {
-  return MISS_QUOTES[getDailyIndex(MISS_QUOTES)];
+/** Prepend a data-aware context line when yesterday's score is available. */
+function prependScoreContext(quote: string, yesterdayScore?: number): string {
+  if (yesterdayScore === undefined) return quote;
+  if (yesterdayScore < 30) return `Yesterday scored ${yesterdayScore}. ${quote}`;
+  if (yesterdayScore <= 60) return `A ${yesterdayScore} day. ${quote}`;
+  if (yesterdayScore > 80) return `Yesterday was strong at ${yesterdayScore}. ${quote}`;
+  return quote;
 }
 
-export function getSuccessQuote(): string {
-  return SUCCESS_QUOTES[getDailyIndex(SUCCESS_QUOTES)];
+export function getMissQuote(yesterdayScore?: number): string {
+  const raw = MISS_QUOTES[getDailyIndex(MISS_QUOTES)];
+  return prependScoreContext(raw, yesterdayScore);
 }
 
-export function getStreakQuote(streakDays: number): string {
+export function getSuccessQuote(yesterdayScore?: number): string {
+  const raw = SUCCESS_QUOTES[getDailyIndex(SUCCESS_QUOTES)];
+  return prependScoreContext(raw, yesterdayScore);
+}
+
+export function getStreakQuote(streakDays: number, yesterdayScore?: number): string {
   const raw = STREAK_QUOTES[getDailyIndex(STREAK_QUOTES)];
-  return raw.replace('{N}', String(streakDays));
+  const quote = raw.replace('{N}', String(streakDays));
+  return prependScoreContext(quote, yesterdayScore);
 }

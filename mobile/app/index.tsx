@@ -29,6 +29,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import styled from 'styled-components/native';
 
 import DisciplineArc from '@/components/DisciplineArc';
+import { useDisciplineStore } from '@/store/useDisciplineStore';
 import GhostCard from '@/components/GhostCard';
 import MomentumBadge from '@/components/MomentumBadge';
 import { CancelButton, EmptyState, GhostButton, PrimaryButton, ProgressBar, Screen, SectionLabel } from '@/components/ui';
@@ -52,7 +53,29 @@ import { TASK_CATEGORIES } from '@/types/models';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// TODO: S5 will add context-aware line
+// ── Context-Aware Verdict ────────────────────────────────────────────────────
+
+function getTodayVerdict(
+  score: number,
+  yesterdayScore: number,
+  streak: number,
+  tasksComplete: number,
+  tasksTotal: number,
+  gridDayPending: boolean,
+): string {
+  if (score === 0 && tasksComplete === 0) return 'You haven\'t started yet. The day is waiting.';
+  if (score >= 90) return 'You\'re in command today. Don\'t let up.';
+  if (score >= 70 && yesterdayScore > score) return `${score}. Yesterday was ${yesterdayScore}. Hold the line.`;
+  if (score >= 70) return `${score}. Respectable. But you\'ve done better.`;
+  if (score >= 50 && score < 70) return `${score}. Mediocre. You know what you need to do.`;
+  if (score < 50 && score > 0) return `${score}. The grid remembers days like this.`;
+  if (streak === 0) return 'No streak. Today is day one — again.';
+  if (streak >= 30) return `${streak} days. Don\'t you dare stop now.`;
+  if (streak >= 14) return `${streak} days. The momentum is real. Protect it.`;
+  if (tasksTotal > 0 && tasksComplete === tasksTotal && !gridDayPending) return 'All tasks complete. The grid awaits.';
+  if (tasksTotal > 0 && tasksComplete === 0) return `${tasksTotal} tasks. None complete. Begin.`;
+  return 'Show up today. That\'s all that\'s asked.';
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -139,12 +162,40 @@ const StreakText = styled.Text`
   font-weight: 600;
 `;
 
-const QuoteText = styled.Text`
-  color: ${COLORS.textDim};
-  font-size: 12px;
+const VerdictText = styled.Text`
+  color: ${COLORS.textSecondary};
+  font-size: 13px;
+  font-weight: 500;
   font-style: italic;
-  margin-top: 12px;
-  line-height: 18px;
+  text-align: center;
+  padding: 0 20px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+`;
+
+const StatusRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  background-color: ${COLORS.surface1};
+  border-radius: 10px;
+  border-width: 1px;
+  border-color: ${COLORS.border};
+  padding: 10px 16px;
+  margin: 0 20px 16px;
+  flex-wrap: wrap;
+`;
+
+const StatusItem = styled.Text<{ done?: boolean }>`
+  color: ${({ done }: { done?: boolean }) => done ? COLORS.crimson : COLORS.textDim};
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+`;
+
+const StatusDot = styled.Text`
+  color: ${COLORS.textDim};
+  font-size: 11px;
 `;
 
 // Oracle Teaser
@@ -703,6 +754,8 @@ export default function HomeScreen() {
   const userStats = useGamificationStore((s) => s.userStats);
   const todayFocusMinutes = useTodayFocusMinutes();
   const journalEntries = useJournalStore((s) => s.journalEntries);
+  const disciplineSnapshots = useDisciplineStore((s) => s.snapshots);
+  const getTodayScore = useDisciplineStore((s) => s.getTodayScore);
 
   const addAlarm = useAlarmStore((s) => s.addAlarm);
 
@@ -728,7 +781,7 @@ export default function HomeScreen() {
     generateDailyTodos();
   }, []);
 
-  // TODO: S5 will add context-aware line here
+
 
   // Oracle teaser (Sun/Mon only, cached verdict)
   const [oracleTeaser, setOracleTeaser] = useState<string | null>(null);
@@ -870,6 +923,18 @@ export default function HomeScreen() {
 
   const todosDone = todayTodos.filter((t) => t.completed).length;
 
+  // ── Context-aware verdict ──
+  const todayScore = getTodayScore();
+  const yesterdaySnapMs = todayMs - 86_400_000;
+  const yesterdaySnap = disciplineSnapshots.find((s) => s.date === yesterdaySnapMs);
+  const yesterdayScore = yesterdaySnap?.score ?? 0;
+  const gridDayCompleted = heroGrid?.todayCompleted ?? false;
+  const journaledToday = journalEntries.some((e) => e.date === todayMs);
+  const verdict = getTodayVerdict(
+    todayScore, yesterdayScore, userStats.currentStreak,
+    todosDone, todayTodos.length, !gridDayCompleted,
+  );
+
   return (
     <Screen>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
@@ -904,14 +969,32 @@ export default function HomeScreen() {
               <GreetingText>{getGreeting()}</GreetingText>
               <DateText>{getFormattedDate()}</DateText>
               <MomentumBadge />
-              {/* TODO: S5 will add context-aware line */}
+
             </Animated.View>
           </GreetingContainer>
 
           {/* ─── 3. Discipline Arc ─── */}
           <DisciplineArc />
 
-          {/* ─── 3b. Ghost of Yesterday ─── */}
+          {/* ─── 3a. Today's Verdict ─── */}
+          <VerdictText>{verdict}</VerdictText>
+
+          {/* ─── 3b. Today's Status ─── */}
+          <StatusRow>
+            <StatusItem done={todosDone === todayTodos.length && todayTodos.length > 0}>
+              {todosDone} of {todayTodos.length} tasks
+            </StatusItem>
+            <StatusDot>•</StatusDot>
+            <StatusItem done={gridDayCompleted}>
+              Grid day {gridDayCompleted ? '✓' : 'pending'}
+            </StatusItem>
+            <StatusDot>•</StatusDot>
+            <StatusItem done={journaledToday}>
+              {journaledToday ? 'Reflected' : 'No reflection yet'}
+            </StatusItem>
+          </StatusRow>
+
+          {/* ─── 3c. Ghost of Yesterday ─── */}
           <GhostCard />
 
           {/* ─── 3c. Oracle Teaser (Sun/Mon) ─── */}
