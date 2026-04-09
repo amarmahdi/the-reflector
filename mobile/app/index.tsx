@@ -10,7 +10,10 @@ import {
   Dimensions,
   FlatList,
   TextInput as RNTextInput,
-  ScrollView
+  ScrollView,
+  Modal,
+  View,
+  Text
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -38,6 +41,7 @@ import { useTodayFocusMinutes } from '@/hooks/useStoreData';
 import { onDayCompleted, onTaskCompleted } from '@/lib/appActions';
 import { formatTimeHHMM, getFormattedDate, getGreeting, isAfter5PM } from '@/lib/dateUtils';
 import { haptic } from '@/lib/haptics';
+import { api } from '@/lib/apiClient';
 import { getCachedOracleVerdict } from '@/lib/oracle';
 import { useAlarmStore } from '@/store/useAlarmStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
@@ -611,6 +615,88 @@ const XpFloatText = styled(Animated.Text)`
   right: 20px;
 `;
 
+// ── Swear Modal ──────────────────────────────────────────────────────────────
+
+const SwearOverlay = styled.View`
+  flex: 1;
+  background-color: rgba(0, 0, 0, 0.85);
+  justify-content: center;
+  align-items: center;
+  padding: 32px;
+`;
+
+const SwearCard = styled.View`
+  background-color: ${COLORS.surface0};
+  border-width: 1.5px;
+  border-color: ${COLORS.warmRed};
+  border-radius: 16px;
+  padding: 32px 24px;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+`;
+
+const SwearTitle = styled.Text`
+  color: ${COLORS.warmRed};
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-align: center;
+`;
+
+const SwearSubtitle = styled.Text`
+  color: ${COLORS.textDim};
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+`;
+
+const SwearOathText = styled.Text`
+  color: ${COLORS.textSecondary};
+  font-size: 15px;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 22px;
+  text-align: center;
+  padding: 16px 0;
+`;
+
+const SwearButton = styled.Pressable`
+  background-color: ${COLORS.warmRed};
+  border-radius: 12px;
+  padding: 16px 32px;
+  align-items: center;
+  width: 100%;
+  margin-top: 8px;
+`;
+
+const SwearButtonText = styled.Text`
+  color: ${COLORS.white};
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+`;
+
+const SwearConfirmedText = styled.Text`
+  color: ${COLORS.warmRed};
+  font-size: 14px;
+  font-weight: 600;
+  font-style: italic;
+  text-align: center;
+  margin-top: 8px;
+`;
+
+const SwearCancelButton = styled.Pressable`
+  padding: 12px;
+  margin-top: 4px;
+`;
+
+const SwearCancelText = styled.Text`
+  color: ${COLORS.crimson};
+  font-size: 13px;
+  font-weight: 600;
+`;
+
 // ── Swipeable Todo Item ──────────────────────────────────────────────────────
 
 function SwipeableTodoItem({
@@ -814,6 +900,17 @@ export default function HomeScreen() {
     const total = grid.days.length;
     const routine = routines.find((r) => r.id === grid.routineId);
     const todayDay = grid.days.find((d) => d.date === todayMs);
+
+    // Check if all core sub-tasks are done for today
+    const coreSubTasks = routine?.subTasks.filter((st) => st.isCore) ?? [];
+    const checkIn = todayDay
+      ? dailyCheckIns.find((c) => c.gridId === grid.id && c.dayIndex === todayDay.dayIndex)
+      : undefined;
+    const completedCoreIds = coreSubTasks.filter(
+      (st) => checkIn?.completedSubTaskIds.includes(st.id)
+    );
+    const allCoreDone = coreSubTasks.length > 0 && completedCoreIds.length === coreSubTasks.length;
+
     return {
       grid,
       routine,
@@ -822,6 +919,9 @@ export default function HomeScreen() {
       percent: total > 0 ? Math.round((completed / total) * 100) : 0,
       todayDay,
       todayCompleted: todayDay?.status === 'completed',
+      allCoreDone,
+      coreTotal: coreSubTasks.length,
+      coreDone: completedCoreIds.length,
     };
   });
 
@@ -848,6 +948,17 @@ export default function HomeScreen() {
     transform: [{ translateY: xpTranslateY.value }],
   }));
 
+  // Swear-to-override state
+  const [swearModalOpen, setSwearModalOpen] = useState(false);
+  const [swearOath, setSwearOath] = useState<string | null>(null);
+  const [swearLoading, setSwearLoading] = useState(false);
+  const [swearConfirmed, setSwearConfirmed] = useState(false);
+  const swearHoldProgress = useSharedValue(0);
+
+  const swearHoldStyle = useAnimatedStyle(() => ({
+    width: `${swearHoldProgress.value * 100}%`,
+  }));
+
   // Handle complete today for hero grid
   const handleCompleteToday = useCallback(() => {
     if (!heroGrid?.grid || !heroGrid.todayDay) return;
@@ -856,6 +967,43 @@ export default function HomeScreen() {
     onDayCompleted(heroGrid.grid.id, heroGrid.todayDay.dayIndex);
     showXpFloatAnim();
   }, [heroGrid]);
+
+  // Open swear modal when user tries to complete without checking sub-tasks
+  const handleSwearOverride = useCallback(async () => {
+    if (!heroGrid?.routine) return;
+    setSwearModalOpen(true);
+    setSwearOath(null);
+    setSwearConfirmed(false);
+    setSwearLoading(true);
+    try {
+      const res = await api<{ summary: string }>('/analyze/journal', {
+        method: 'POST',
+        body: {
+          journal_entries: [{
+            date: Date.now(),
+            body: `User is trying to mark "${heroGrid.routine.title}" as complete but has only done ${heroGrid.coreDone} of ${heroGrid.coreTotal} core tasks. They want to skip the proof and mark it done anyway.`,
+            mood: 'neutral',
+          }],
+          discipline_snapshots: [],
+          prompt_override: `You are The Reflector, a stoic discipline AI. The user is trying to cheat — they want to mark their routine day as complete without finishing their core tasks. Write a short, razor-sharp 2-sentence oath they must agree to. First sentence: make them admit what they're doing. Second sentence: state the consequence — "The grid will remember this lie." or similar. Be cold. Be direct. No exclamation marks. Return ONLY the oath text.`,
+        },
+      });
+      setSwearOath(res?.summary ?? 'I swear I completed this day honestly. If I am lying, the grid will carry this scar.');
+    } catch {
+      setSwearOath('I swear on my word that I completed this day. If I am lying, let this grid remember.');
+    }
+    setSwearLoading(false);
+  }, [heroGrid]);
+
+  const confirmSwear = useCallback(() => {
+    setSwearConfirmed(true);
+    haptic.warning();
+    setTimeout(() => {
+      handleCompleteToday();
+      setSwearModalOpen(false);
+      setSwearConfirmed(false);
+    }, 800);
+  }, [handleCompleteToday]);
 
   // FAB toggle
   const toggleFab = useCallback(() => {
@@ -936,6 +1084,7 @@ export default function HomeScreen() {
   );
 
   return (
+    <>
     <Screen>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <ScrollView
@@ -1033,8 +1182,15 @@ export default function HomeScreen() {
                     }}
                     label="Completed ✓  ·  View grid →"
                   />
-                ) : heroGrid.todayDay ? (
+                ) : heroGrid.todayDay && heroGrid.allCoreDone ? (
                   <PrimaryButton onPress={handleCompleteToday} label="Complete Today ✓" />
+                ) : heroGrid.todayDay ? (
+                  <>
+                    <GhostButton
+                      onPress={handleSwearOverride}
+                      label={`${heroGrid.coreDone}/${heroGrid.coreTotal} core tasks — Swear to complete`}
+                    />
+                  </>
                 ) : (
                   <GhostButton
                     onPress={() => {
@@ -1266,5 +1422,45 @@ export default function HomeScreen() {
         </Animated.View>
       </FabContainer>
     </Screen>
+
+      {/* ─── Swear Modal ─── */}
+      <Modal
+        visible={swearModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSwearModalOpen(false)}
+      >
+        <SwearOverlay>
+          <SwearCard>
+            <SwearTitle>YOU HAVEN'T EARNED THIS.</SwearTitle>
+            <SwearSubtitle>
+              {heroGrid ? `${heroGrid.coreDone} of ${heroGrid.coreTotal} core tasks completed.` : ''}
+            </SwearSubtitle>
+
+            {swearLoading ? (
+              <SwearOathText>Summoning your oath...</SwearOathText>
+            ) : swearOath ? (
+              <SwearOathText>{swearOath}</SwearOathText>
+            ) : null}
+
+            {!swearLoading && swearOath && !swearConfirmed && (
+              <SwearButton onPress={confirmSwear}>
+                <SwearButtonText>I swear this is true.</SwearButtonText>
+              </SwearButton>
+            )}
+
+            {swearConfirmed && (
+              <SwearConfirmedText>Noted. The grid remembers.</SwearConfirmedText>
+            )}
+
+            {!swearConfirmed && (
+              <SwearCancelButton onPress={() => setSwearModalOpen(false)}>
+                <SwearCancelText>Go back and finish.</SwearCancelText>
+              </SwearCancelButton>
+            )}
+          </SwearCard>
+        </SwearOverlay>
+      </Modal>
+    </>
   );
 }
