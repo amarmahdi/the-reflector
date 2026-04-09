@@ -2,7 +2,7 @@
 // The Reflector – Alarm Manager Screen (Restyled)
 // ──────────────────────────────────────────────
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ScrollView, Switch, Alert } from 'react-native';
 import styled from 'styled-components/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -153,16 +153,49 @@ export default function AlarmsScreen() {
   const routine = alarms.filter((a) => a.type === 'routine');
   const task = alarms.filter((a) => a.type === 'task');
 
-  // Reschedule OS alarms whenever store changes
-  useEffect(() => {
+  // Reschedule OS alarms — call explicitly after mutations, not in useEffect
+  const reschedule = () => {
     const { grids, routines, dailyTodos, notificationSettings } = useReflectorStore.getState();
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const todayMs = now.getTime();
     const activeGrids = grids.filter((g) => g.status === 'active');
     const todayTodos = dailyTodos.filter((t) => t.date === todayMs);
-    scheduleAllAlarms(alarms, notificationSettings, activeGrids, routines, todayTodos);
-  }, [alarms]);
+    scheduleAllAlarms(useAlarmStore.getState().alarms, notificationSettings, activeGrids, routines, todayTodos);
+  };
+
+  const handleToggle = (id: string) => {
+    haptic.light();
+    toggleAlarm(id);
+    // Small delay so store updates first
+    setTimeout(reschedule, 100);
+  };
+
+  const handleDelete = (alarm: Alarm) => {
+    Alert.alert('Delete alarm', `Delete "${alarm.label}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: () => {
+          haptic.warning();
+          deleteAlarm(alarm.id);
+          setTimeout(reschedule, 100);
+          setExpandedId(null);
+        }
+      },
+    ]);
+  };
+
+  const handleSaveNew = (data: any) => {
+    addAlarm(data);
+    setShowNew(false);
+    setTimeout(reschedule, 100);
+  };
+
+  const handleSaveEdit = (alarmId: string, data: any) => {
+    updateAlarmStore(alarmId, data);
+    setExpandedId(null);
+    setTimeout(reschedule, 100);
+  };
 
   const renderAlarmCard = (alarm: Alarm) => {
     const isExpanded = expandedId === alarm.id;
@@ -179,7 +212,7 @@ export default function AlarmsScreen() {
           </AlarmInfo>
           <Switch
             value={alarm.enabled}
-            onValueChange={() => { haptic.light(); toggleAlarm(alarm.id); }}
+            onValueChange={() => handleToggle(alarm.id)}
             trackColor={{ false: COLORS.border, true: COLORS.crimson }}
             thumbColor={COLORS.white}
           />
@@ -187,13 +220,8 @@ export default function AlarmsScreen() {
         {isExpanded && (
           <AlarmConfig
             alarm={alarm}
-            onSave={(data) => { updateAlarmStore(alarm.id, data); setExpandedId(null); }}
-            onDelete={() => {
-              Alert.alert('Delete alarm', `Delete "${alarm.label}"?`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => { haptic.warning(); deleteAlarm(alarm.id); setExpandedId(null); } },
-              ]);
-            }}
+            onSave={(data) => handleSaveEdit(alarm.id, data)}
+            onDelete={() => handleDelete(alarm)}
             onCancel={() => setExpandedId(null)}
           />
         )}
@@ -232,7 +260,7 @@ export default function AlarmsScreen() {
               <SectionLabel>NEW ALARM</SectionLabel>
               <AlarmConfig
                 linkedType="standalone"
-                onSave={(data) => { addAlarm(data); setShowNew(false); }}
+                onSave={handleSaveNew}
                 onCancel={() => setShowNew(false)}
               />
             </>

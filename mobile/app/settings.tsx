@@ -10,7 +10,8 @@ import { useReflectorStore } from '@/store/useReflectorStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { COLORS } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { scheduleNotifications, getScheduledCount, requestPermissions } from '@/lib/notifications';
+import { scheduleAllAlarms, getScheduledCount, requestPermissions } from '@/lib/notifications';
+import { useAlarmStore } from '@/store/useAlarmStore';
 import { downloadYouTubeAudio, listDownloadedSounds, deleteDownloadedSound } from '@/lib/youtubeAudio';
 import { exportAllData, importData, getStorageSize, clearAllData } from '@/lib/dataExport';
 import { manualBackup, restoreFromCloud } from '@/lib/autoBackup';
@@ -385,7 +386,8 @@ export default function SettingsScreen() {
       return;
     }
     const activeGrids = grids.filter((g) => g.status === 'active');
-    await scheduleNotifications(notificationSettings, activeGrids, routines);
+    const alarms = useAlarmStore.getState().alarms;
+    await scheduleAllAlarms(alarms, notificationSettings, activeGrids, routines);
     const count = await getScheduledCount();
     setScheduledCount(count);
     Alert.alert('Scheduled', `${count} notification${count !== 1 ? 's' : ''} set.`);
