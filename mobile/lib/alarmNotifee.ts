@@ -9,6 +9,7 @@ import notifee, {
   TriggerType,
   EventType,
   AndroidNotificationSetting,
+  AlarmType,
 } from '@notifee/react-native';
 import { Platform } from 'react-native';
 
@@ -150,6 +151,7 @@ export async function scheduleAlarmNotifee(
         type: TriggerType.TIMESTAMP,
         timestamp: target.getTime(),
         alarmManager: {
+          type: AlarmType.SET_ALARM_CLOCK,
           allowWhileIdle: true,
         },
       }
@@ -180,20 +182,99 @@ export async function cancelAlarmNotifee(): Promise<void> {
 /**
  * Register Notifee background event handler.
  * Must be called at module level (outside of any component).
- * 
- * IMPORTANT: Do NOT re-display notifications on DELIVERED — that causes
- * infinite duplication. The trigger notification itself already shows
- * as full-screen if configured correctly.
+ *
+ * When a scheduled trigger fires in the background, the DELIVERED event
+ * re-displays an IMMEDIATE full-screen notification. This is what makes
+ * the alarm pop over the lock screen and wake the device — trigger
+ * notifications alone only show in the notification shade.
  */
 export function registerNotifeeBackgroundHandler(): void {
   notifee.onBackgroundEvent(async ({ type, detail }) => {
     console.log('[ALARM] Background event:', type, detail.notification?.title);
+
+    if (type === EventType.DELIVERED) {
+      // Trigger notification was delivered — re-display as immediate
+      // full-screen alarm notification to wake device / show over apps
+      console.log('[ALARM] Trigger DELIVERED — firing full-screen alarm');
+      try {
+        await ensureAlarmChannel();
+        await notifee.displayNotification({
+          title: detail.notification?.title ?? 'WAKE UP, REFLECTOR.',
+          body: detail.notification?.body ?? 'Your alarm is going off. Face it.',
+          android: {
+            channelId: ALARM_CHANNEL_ID,
+            category: AndroidCategory.ALARM,
+            importance: AndroidImportance.HIGH,
+            visibility: AndroidVisibility.PUBLIC,
+            fullScreenAction: {
+              id: 'wake-alarm',
+              launchActivity: 'default',
+            },
+            ongoing: true,
+            autoCancel: false,
+            pressAction: {
+              id: 'wake-alarm',
+              launchActivity: 'default',
+            },
+            // Keep the screen on and show over lock screen
+            lights: ['#FF0000', 500, 500],
+            vibrationPattern: [0, 500, 200, 500, 200, 500],
+          },
+        });
+      } catch (e) {
+        console.error('[ALARM] Background display failed:', e);
+      }
+    }
 
     if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
       // User tapped the alarm — dismiss it
       if (detail.notification?.id) {
         await notifee.cancelNotification(detail.notification.id);
       }
+      // Cancel all to clean up
+      await notifee.cancelAllNotifications();
+    }
+  });
+}
+
+/**
+ * Register foreground event handler.
+ * When alarm fires while app is open, this handles it.
+ */
+export function registerNotifeeForegroundHandler(): void {
+  notifee.onForegroundEvent(async ({ type, detail }) => {
+    if (type === EventType.DELIVERED) {
+      console.log('[ALARM] Foreground DELIVERED — alarm fired while app open');
+      // Re-display to ensure it pops up
+      await ensureAlarmChannel();
+      await notifee.displayNotification({
+        title: detail.notification?.title ?? 'WAKE UP, REFLECTOR.',
+        body: detail.notification?.body ?? 'Your alarm is going off.',
+        android: {
+          channelId: ALARM_CHANNEL_ID,
+          category: AndroidCategory.ALARM,
+          importance: AndroidImportance.HIGH,
+          visibility: AndroidVisibility.PUBLIC,
+          fullScreenAction: {
+            id: 'wake-alarm',
+            launchActivity: 'default',
+          },
+          ongoing: true,
+          autoCancel: false,
+          pressAction: {
+            id: 'wake-alarm',
+            launchActivity: 'default',
+          },
+          vibrationPattern: [0, 500, 200, 500, 200, 500],
+        },
+      });
+    }
+
+    if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
+      if (detail.notification?.id) {
+        await notifee.cancelNotification(detail.notification.id);
+      }
+      await notifee.cancelAllNotifications();
     }
   });
 }

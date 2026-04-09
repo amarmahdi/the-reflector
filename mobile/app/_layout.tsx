@@ -30,7 +30,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { checkAutoBackup } from '@/lib/autoBackup';
 import { COLORS } from '@/constants/theme';
 import { scheduleAllAlarms } from '@/lib/notifications';
-import { ensureAlarmChannel, registerNotifeeBackgroundHandler } from '@/lib/alarmNotifee';
+import { ensureAlarmChannel, registerNotifeeBackgroundHandler, registerNotifeeForegroundHandler } from '@/lib/alarmNotifee';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerToastCallback, triggerDisciplineCalculation } from '@/lib/appActions';
 import { ACHIEVEMENT_DEFINITIONS } from '@/lib/achievements';
@@ -43,8 +43,9 @@ import type { Achievement } from '@/types/models';
 import { xpForLevel } from '@/types/models';
 import { seedTestData } from '@/lib/seedData';
 
-// Register Notifee background handler at module level (required)
+// Register Notifee handlers at module level (required)
 registerNotifeeBackgroundHandler();
+registerNotifeeForegroundHandler();
 
 export {
   ErrorBoundary,
