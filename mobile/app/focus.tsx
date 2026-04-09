@@ -521,7 +521,7 @@ export default function FocusTimerScreen() {
         <BackButton onPress={() => { haptic.light(); router.back(); }}>
           <BackIcon>←</BackIcon>
         </BackButton>
-        <HeaderTitle>Focus</HeaderTitle>
+        <HeaderTitle>The Crucible</HeaderTitle>
         <HeaderSpacer />
       </HeaderBar>
 

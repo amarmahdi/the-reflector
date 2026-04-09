@@ -236,19 +236,19 @@ export default function TheFireScreen() {
   if (scarredEntries.length === 0 || !current) {
     return (
       <FireScreen>
-        <Title>All caught up</Title>
-        <Subtitle>No missed days to reflect on. Keep going.</Subtitle>
-        <PrimaryButton onPress={() => router.replace('/')} label="Return Home" />
+        <Title>The path is clear.</Title>
+        <Subtitle>There are no scars to tend. Walk forward.</Subtitle>
+        <PrimaryButton onPress={() => router.replace('/')} label="Continue the path." />
       </FireScreen>
     );
   }
 
   return (
     <FireScreen>
-      <Title>A day was missed.</Title>
+      <Title>You broke a promise.</Title>
       <Subtitle>
-        Before you move forward, take a moment to reflect on what happened.
-        This isn't punishment — it's awareness.
+        Before you continue, you must face what happened.
+        This is not punishment. This is truth.
       </Subtitle>
 
       <RoutineName>{routine?.title ?? 'Unknown Routine'}</RoutineName>
@@ -271,13 +271,13 @@ export default function TheFireScreen() {
         // Show consequence after reflection is submitted
         <>
           <ConsequenceBanner>
-            <ConsequenceTitle>CONSEQUENCE</ConsequenceTitle>
+            <ConsequenceTitle>THE COST</ConsequenceTitle>
             <ConsequenceMessage>{pendingConsequence.message}</ConsequenceMessage>
             <ConsequenceXP>-{pendingConsequence.xpPenalty} XP</ConsequenceXP>
           </ConsequenceBanner>
           <PrimaryButton
             onPress={handleContinue}
-            label={currentIndex + 1 < scarredEntries.length ? 'Next Reflection' : 'Continue'}
+            label={currentIndex + 1 < scarredEntries.length ? 'Next wound.' : 'Continue'}
             style={{ marginTop: SPACING.xxl }}
           />
         </>
@@ -292,7 +292,7 @@ export default function TheFireScreen() {
             multiline
             value={reason}
             onChangeText={setReason}
-            placeholder="Write your reflection..."
+            placeholder="What defeated you?"
             textAlignVertical="top"
             style={{ minHeight: 120 }}
           />
@@ -305,7 +305,7 @@ export default function TheFireScreen() {
 
           <PrimaryButton
             onPress={handleSubmit}
-            label="I understand"
+            label="I accept this scar."
             disabled={!canSubmit}
             style={{ marginTop: SPACING.xxl }}
           />

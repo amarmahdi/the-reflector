@@ -74,15 +74,15 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
     : 0;
 
   const navItems = [
-    { label: 'Home', icon: '🏠', route: '/' },
+    { label: 'The Path', icon: '🏠', route: '/' },
     { label: 'The Forge', icon: '🔥', route: '/forge' },
-    { label: 'Focus', icon: '🧘', route: '/focus' },
-    { label: 'Journal', icon: '📖', route: '/journal' },
-    { label: 'Insights', icon: '📊', route: '/insights' },
-    { label: 'Achievements', icon: '🏆', route: '/achievements' },
-    { label: 'Alarms', icon: '⏰', route: '/alarms' },
-    { label: 'Recurring Tasks', icon: '🔄', route: '/recurring-tasks' },
-    { label: 'Weekly Review', icon: '📅', route: '/weekly-review' },
+    { label: 'The Crucible', icon: '🧘', route: '/focus' },
+    { label: 'Reflections', icon: '📖', route: '/journal' },
+    { label: 'The Mirror', icon: '📊', route: '/insights' },
+    { label: 'Marks of Honor', icon: '🏆', route: '/achievements' },
+    { label: 'The Bell', icon: '⏰', route: '/alarms' },
+    { label: 'Disciplines', icon: '🔄', route: '/recurring-tasks' },
+    { label: 'Week in Review', icon: '📅', route: '/weekly-review' },
   ];
 
   const navigate = (route: string) => {
@@ -133,7 +133,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
         onPress={() => navigate('/settings')}
       >
         <Text style={ds.drawerFooterIcon}>⚙️</Text>
-        <Text style={ds.drawerFooterLabel}>Settings</Text>
+        <Text style={ds.drawerFooterLabel}>The Sanctum</Text>
       </Pressable>
     </SafeAreaView>
   );
@@ -528,23 +528,23 @@ function RootLayoutNav() {
         screenOptions={screenOptions}
       >
         {/* Home — no header (handles its own top bar with menu + profile) */}
-        <Drawer.Screen name="index" options={{ headerShown: false, title: 'Home' }} />
+        <Drawer.Screen name="index" options={{ headerShown: false, title: 'The Path' }} />
 
         {/* Main feature screens — shown in drawer */}
         <Drawer.Screen name="forge" options={{ title: 'The Forge' }} />
-        <Drawer.Screen name="focus" options={{ headerShown: false, title: 'Focus' }} />
-        <Drawer.Screen name="insights" options={{ title: 'Insights' }} />
-        <Drawer.Screen name="settings" options={{ title: 'Settings', drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="focus" options={{ headerShown: false, title: 'The Crucible' }} />
+        <Drawer.Screen name="insights" options={{ title: 'The Mirror' }} />
+        <Drawer.Screen name="settings" options={{ title: 'The Sanctum', drawerItemStyle: { display: 'none' } }} />
 
         {/* Stack screens — hidden from drawer, navigated via buttons */}
         <Drawer.Screen name="flow/[gridId]" options={{ title: 'Grid Flow', drawerItemStyle: { display: 'none' } }} />
-        <Drawer.Screen name="journal/index" options={{ title: 'Journal', drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="journal/index" options={{ title: 'Reflections', drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="journal/[entryId]" options={{ title: 'Entry', drawerItemStyle: { display: 'none' } }} />
-        <Drawer.Screen name="achievements" options={{ title: 'Achievements', drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="achievements" options={{ title: 'Marks of Honor', drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="routine/[routineId]" options={{ title: 'Routine', drawerItemStyle: { display: 'none' } }} />
-        <Drawer.Screen name="recurring-tasks" options={{ title: 'Recurring Tasks', drawerItemStyle: { display: 'none' } }} />
-        <Drawer.Screen name="alarms" options={{ title: 'Alarms', drawerItemStyle: { display: 'none' } }} />
-        <Drawer.Screen name="weekly-review" options={{ title: 'Weekly Review', drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="recurring-tasks" options={{ title: 'Disciplines', drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="alarms" options={{ title: 'The Bell', drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="weekly-review" options={{ title: 'Week in Review', drawerItemStyle: { display: 'none' } }} />
 
         {/* Full-screen modals */}
         <Drawer.Screen

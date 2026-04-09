@@ -51,25 +51,7 @@ import { TASK_CATEGORIES } from '@/types/models';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ── Motivational Quotes ──────────────────────────────────────────────────────
-
-const QUOTES = [
-  'Discipline is choosing between what you want now and what you want most.',
-  'We are what we repeatedly do. Excellence is not an act, but a habit.',
-  "You don't rise to the level of your goals. You fall to the level of your systems.",
-  'The secret of your future is hidden in your daily routine.',
-  'Small steps every day lead to big changes over time.',
-  "It's not about being the best. It's about being better than you were yesterday.",
-  'What you do every day matters more than what you do once in a while.',
-  'A disciplined mind leads to happiness.',
-  'Consistency is what transforms average into excellence.',
-  'Your future is created by what you do today, not tomorrow.',
-  'The man who moves a mountain begins by carrying away small stones.',
-  "Success isn't always about greatness. It's about consistency.",
-  'Hold yourself responsible for a higher standard than anybody else expects of you.',
-  'The only way to do great work is to love what you do — and to do it every single day.',
-  'Rule your mind or it will rule you.',
-];
+// TODO: S5 will add context-aware line
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,9 +79,9 @@ const SWIPE_THRESHOLD = -100;
 
 const EXPLORE_ITEMS = [
   { icon: '🔥', label: 'The Forge', route: '/forge' },
-  { icon: '📊', label: 'Your Insights', route: '/insights' },
-  { icon: '🏆', label: 'Achievements', route: '/achievements' },
-  { icon: '⏰', label: 'Your Alarms', route: '/alarms' },
+  { icon: '📊', label: 'The Mirror', route: '/insights' },
+  { icon: '🏆', label: 'Marks of Honor', route: '/achievements' },
+  { icon: '⏰', label: 'The Bell', route: '/alarms' },
 ];
 
 // ── Styled Components ────────────────────────────────────────────────────────
@@ -627,7 +609,7 @@ function SwipeableTodoItem({
               onToggle();
             }}
             onLongPress={() => {
-              Alert.alert('Delete task?', 'This action cannot be undone.', [
+              Alert.alert('Abandon this task?', 'This cannot be undone.', [
                 { text: 'Cancel', style: 'cancel' },
                 {
                   text: 'Delete',
@@ -710,11 +692,7 @@ export default function HomeScreen() {
     generateDailyTodos();
   }, []);
 
-  // Quote
-  const quote = useMemo(() => {
-    const idx = Math.floor(Math.random() * QUOTES.length);
-    return QUOTES[idx];
-  }, []);
+  // TODO: S5 will add context-aware line here
 
   // Today
   const now = new Date();
@@ -873,7 +851,7 @@ export default function HomeScreen() {
               <GreetingText>{getGreeting()}</GreetingText>
               <DateText>{getFormattedDate()}</DateText>
               <MomentumBadge />
-              <QuoteText>"{quote}"</QuoteText>
+              {/* TODO: S5 will add context-aware line */}
             </Animated.View>
           </GreetingContainer>
 
@@ -1034,7 +1012,7 @@ export default function HomeScreen() {
                   setShowInlineAdd(true);
                 }}
               >
-                <AddTaskText>+ Add a task</AddTaskText>
+                <AddTaskText>+ Add to today</AddTaskText>
               </AddTaskRow>
             )}
           </TasksContainer>
@@ -1055,7 +1033,7 @@ export default function HomeScreen() {
           )}
 
           {/* ─── 7. Explore Grid ─── */}
-          <SectionLabel style={{ marginTop: 24 }}>EXPLORE</SectionLabel>
+          <SectionLabel style={{ marginTop: 24 }}>PATHS</SectionLabel>
           <ExploreGrid>
             {EXPLORE_ITEMS.map((item) => (
               <ExploreCard

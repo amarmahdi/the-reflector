@@ -379,7 +379,7 @@ export default function WeeklyReviewScreen() {
             <ScoreCircleOuter>
               <ScoreCircleFill progress={overview.avgScore / 100} style={ringStyle} />
               <ScoreValue>{overview.avgScore}</ScoreValue>
-              <ScoreLabel>WEEKLY SCORE</ScoreLabel>
+              <ScoreLabel>YOUR MEASURE</ScoreLabel>
             </ScoreCircleOuter>
           </ScoreRingContainer>
 
@@ -387,23 +387,23 @@ export default function WeeklyReviewScreen() {
           <StatsGrid>
             <StatCard entering={FadeIn.delay(100)}>
               <StatValue>{overview.totalRoutineDays}</StatValue>
-              <StatLabel>ROUTINE DAYS</StatLabel>
+              <StatLabel>DAYS HONORED</StatLabel>
             </StatCard>
             <StatCard entering={FadeIn.delay(150)}>
               <StatValueAccent>{overview.totalScars}</StatValueAccent>
-              <StatLabel>TOTAL SCARS</StatLabel>
+              <StatLabel>SCARS EARNED</StatLabel>
             </StatCard>
             <StatCard entering={FadeIn.delay(200)}>
               <StatValue>{overview.totalFocusMinutes}</StatValue>
-              <StatLabel>FOCUS MINUTES</StatLabel>
+              <StatLabel>CRUCIBLE TIME</StatLabel>
             </StatCard>
             <StatCard entering={FadeIn.delay(250)}>
               <StatValue>{overview.totalJournalEntries}</StatValue>
-              <StatLabel>JOURNAL ENTRIES</StatLabel>
+              <StatLabel>REFLECTIONS</StatLabel>
             </StatCard>
             <StatCard entering={FadeIn.delay(300)}>
               <StatValue>{userStats.currentStreak}</StatValue>
-              <StatLabel>CURRENT STREAK</StatLabel>
+              <StatLabel>THE STREAK</StatLabel>
             </StatCard>
             <StatCard entering={FadeIn.delay(350)}>
               <ChangeIndicator positive={overview.vsLastWeek >= 0}>
@@ -416,7 +416,7 @@ export default function WeeklyReviewScreen() {
           {/* Best / Worst Day */}
           {overview.bestDay && (
             <>
-              <SectionLabel>BEST DAY</SectionLabel>
+              <SectionLabel>YOUR STRONGEST DAY</SectionLabel>
               <DayCard entering={SlideInDown.delay(400).springify()}>
                 <DayInfo>
                   <DayName>{formatDayName(overview.bestDay.date)}</DayName>
@@ -429,7 +429,7 @@ export default function WeeklyReviewScreen() {
 
           {overview.worstDay && overview.bestDay?.date !== overview.worstDay?.date && (
             <>
-              <SectionLabel>WORST DAY</SectionLabel>
+              <SectionLabel>YOUR WEAKEST DAY</SectionLabel>
               <DayCard entering={SlideInDown.delay(500).springify()}>
                 <DayInfo>
                   <DayName>{formatDayName(overview.worstDay.date)}</DayName>
@@ -443,7 +443,7 @@ export default function WeeklyReviewScreen() {
           {/* Most Common Mood */}
           {moodConfig && (
             <>
-              <SectionLabel>MOST COMMON MOOD</SectionLabel>
+              <SectionLabel>DOMINANT STATE</SectionLabel>
               <MoodCard entering={FadeIn.delay(600)}>
                 <MoodEmoji>{moodConfig.emoji}</MoodEmoji>
                 <MoodText>{moodConfig.label}</MoodText>
@@ -454,7 +454,7 @@ export default function WeeklyReviewScreen() {
           {/* Top Failure Word */}
           {overview.topFailureWord && (
             <>
-              <SectionLabel>YOUR TOP EXCUSE</SectionLabel>
+              <SectionLabel>YOUR MOST USED EXCUSE</SectionLabel>
               <FailureCard entering={FadeIn.delay(700)}>
                 <FailureWord>"{overview.topFailureWord.toUpperCase()}"</FailureWord>
                 <FailureLabel>MOST USED IN REFLECTIONS</FailureLabel>
@@ -474,16 +474,16 @@ export default function WeeklyReviewScreen() {
           )}
 
           {/* This Week's Intention */}
-          <SectionLabel>SET THIS WEEK'S INTENTION</SectionLabel>
+          <SectionLabel>YOUR COMMITMENT FOR THE WEEK</SectionLabel>
           <StyledInput
             value={intention}
             onChangeText={setIntention}
-            placeholder="What will you commit to this week?"
+            placeholder="What will you protect this week?"
             placeholderTextColor={COLORS.textDim}
             multiline
           />
 
-          <PrimaryButton onPress={handleClose} label="LET'S GO" style={{ marginTop: 20 }} />
+          <PrimaryButton onPress={handleClose} label="Seal this week." style={{ marginTop: 20 }} />
         </ContentPad>
       </ScrollView>
     </Screen>

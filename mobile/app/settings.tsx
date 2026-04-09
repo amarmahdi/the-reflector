@@ -461,12 +461,12 @@ export default function SettingsScreen() {
   };
 
   const quickLinks = [
-    { icon: '📖', label: 'Journal', route: '/journal' },
-    { icon: '🏆', label: 'Achievements', route: '/achievements' },
-    { icon: '📊', label: 'Insights', route: '/insights' },
-    { icon: '⏰', label: 'Alarms', route: '/alarms' },
-    { icon: '🔄', label: 'Recurring Tasks', route: '/recurring-tasks' },
-    { icon: '📅', label: 'Weekly Review', route: '/weekly-review' },
+    { icon: '📖', label: 'Reflections', route: '/journal' },
+    { icon: '🏆', label: 'Marks of Honor', route: '/achievements' },
+    { icon: '📊', label: 'The Mirror', route: '/insights' },
+    { icon: '⏰', label: 'The Bell', route: '/alarms' },
+    { icon: '🔄', label: 'Disciplines', route: '/recurring-tasks' },
+    { icon: '📅', label: 'Week in Review', route: '/weekly-review' },
   ];
 
   const handleManualBackup = async () => {
@@ -561,7 +561,7 @@ export default function SettingsScreen() {
           {/* Account */}
           {isLoggedIn && authUser && (
             <>
-              <SectionLabel>ACCOUNT</SectionLabel>
+              <SectionLabel>IDENTITY</SectionLabel>
               <SettingRow>
                 <SettingLabel>@{authUser.username}</SettingLabel>
                 <HintText style={{ marginBottom: 0 }}>{authUser.display_name}</HintText>
@@ -572,7 +572,7 @@ export default function SettingsScreen() {
           {/* Cloud Backup */}
           {isLoggedIn && (
             <>
-              <SectionLabel>CLOUD BACKUP</SectionLabel>
+              <SectionLabel>THE ARCHIVE</SectionLabel>
               <HintText>Last backup: {formatBackupDate(lastBackupAt)}</HintText>
               <SettingRow>
                 <SettingLabel>Auto-Sync Daily</SettingLabel>
@@ -585,19 +585,19 @@ export default function SettingsScreen() {
               </SettingRow>
               <PrimaryButton
                 onPress={handleManualBackup}
-                label={backingUp ? 'BACKING UP...' : 'BACKUP NOW'}
+                label={backingUp ? 'PRESERVING...' : 'PRESERVE YOUR RECORD'}
                 style={{ marginTop: 12 }}
               />
               <GhostButton
                 onPress={handleRestore}
-                label={restoring ? 'RESTORING...' : 'RESTORE FROM CLOUD'}
+                label={restoring ? 'RECOVERING...' : 'RECOVER YOUR PAST'}
                 style={{ marginTop: 12 }}
               />
             </>
           )}
 
           {/* Quick Links */}
-          <SectionLabel>QUICK LINKS</SectionLabel>
+          <SectionLabel>PATHS</SectionLabel>
           {quickLinks.map((link) => (
             <LinkRow key={link.route} onPress={() => {
               haptic.light();
@@ -612,7 +612,7 @@ export default function SettingsScreen() {
           ))}
 
           {/* Notifications */}
-          <SectionLabel>NOTIFICATIONS</SectionLabel>
+          <SectionLabel>THE BELL</SectionLabel>
           <SettingRow>
             <SettingLabel>Enable notifications</SettingLabel>
             <Switch
@@ -625,7 +625,7 @@ export default function SettingsScreen() {
 
           {notificationSettings.enabled && (
             <>
-              <SectionLabel>WAKE TIME</SectionLabel>
+              <SectionLabel>RISE TIME</SectionLabel>
               {Platform.OS === 'android' && (
                 <TimeButton onPress={() => setShowWakePicker(true)}>
                   <TimeButtonText>{formatTime(wakeH ?? 7, wakeM ?? 0)}</TimeButtonText>
@@ -638,7 +638,7 @@ export default function SettingsScreen() {
                 </PickerWrapper>
               )}
 
-              <SectionLabel>FIRST REMINDER</SectionLabel>
+              <SectionLabel>FIRST CALL</SectionLabel>
               <HintText>{notificationSettings.firstReminderOffset} min after wake</HintText>
               <OptionRow>
                 {[15, 30, 60, 90].map((val) => (
@@ -648,7 +648,7 @@ export default function SettingsScreen() {
                 ))}
               </OptionRow>
 
-              <SectionLabel>NUDGE EVERY</SectionLabel>
+              <SectionLabel>PERSISTENCE</SectionLabel>
               <OptionRow>
                 {[0, 60, 120, 180].map((val) => (
                   <OptionBtn key={val} active={notificationSettings.nudgeInterval === val} onPress={() => updateNotificationSettings({ nudgeInterval: val })}>
@@ -657,7 +657,7 @@ export default function SettingsScreen() {
                 ))}
               </OptionRow>
 
-              <SectionLabel>QUIET AFTER</SectionLabel>
+              <SectionLabel>SILENCE AFTER</SectionLabel>
               {Platform.OS === 'android' && (
                 <TimeButton onPress={() => setShowQuietPicker(true)}>
                   <TimeButtonText>{formatTime(notificationSettings.quietHourStart, 0)}</TimeButtonText>
@@ -670,13 +670,13 @@ export default function SettingsScreen() {
                 </PickerWrapper>
               )}
 
-              <PrimaryButton onPress={handleReschedule} label="RESCHEDULE NOW" style={{ marginTop: 12 }} />
+              <PrimaryButton onPress={handleReschedule} label="RESET THE BELL" style={{ marginTop: 12 }} />
               <ScheduledInfo>{scheduledCount} notifications scheduled</ScheduledInfo>
             </>
           )}
 
           {/* Alarm Sound */}
-          <SectionLabel>ALARM SOUND</SectionLabel>
+          <SectionLabel>THE BELL'S VOICE</SectionLabel>
           <HintText>{notificationSettings.alarmSoundName ?? 'Default (built-in)'}</HintText>
           <OptionRow>
             <OptionBtn active={!notificationSettings.alarmSoundUri} onPress={() => updateNotificationSettings({ alarmSoundUri: null, alarmSoundName: null })}>
@@ -711,18 +711,18 @@ export default function SettingsScreen() {
           ))}
 
           {/* Data */}
-          <SectionLabel>DATA</SectionLabel>
+          <SectionLabel>YOUR RECORD</SectionLabel>
           <StorageText>{storageInfo}</StorageText>
-          <GhostButton onPress={handleExport} label="EXPORT DATA" style={{ marginTop: 12 }} />
-          <GhostButton onPress={handleImport} label="IMPORT DATA" style={{ marginTop: 12 }} />
-          <GhostButton onPress={handleClearOldTodos} label="CLEAR OLD TASKS" style={{ marginTop: 12 }} />
-          <DangerButton onPress={handleResetAll} label="RESET ALL DATA" style={{ marginTop: 12 }} />
+          <GhostButton onPress={handleExport} label="CARRY YOUR RECORD" style={{ marginTop: 12 }} />
+          <GhostButton onPress={handleImport} label="RECEIVE A RECORD" style={{ marginTop: 12 }} />
+          <GhostButton onPress={handleClearOldTodos} label="RELEASE OLD BURDENS" style={{ marginTop: 12 }} />
+          <DangerButton onPress={handleResetAll} label="BURN EVERYTHING" style={{ marginTop: 12 }} />
 
           {/* Logout */}
           {isLoggedIn && (
             <>
-              <SectionLabel>SESSION</SectionLabel>
-              <DangerButton onPress={handleLogout} label="LOG OUT" style={{ marginTop: 4 }} />
+              <SectionLabel>DEPARTURE</SectionLabel>
+              <DangerButton onPress={handleLogout} label="LEAVE THE SANCTUM" style={{ marginTop: 4 }} />
             </>
           )}
 
