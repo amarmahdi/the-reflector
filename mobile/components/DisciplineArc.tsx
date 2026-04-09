@@ -180,11 +180,11 @@ function DisciplineArc() {
 
   return (
     <View style={styles.container}>
-      {/* Background glow */}
-      <Animated.View style={[styles.glow, { backgroundColor: glowColor }, glowStyle]} />
-
       {/* Arc ring + centered score */}
       <View style={styles.arcArea}>
+        {/* Background glow — inside arcArea so it's always centered */}
+        <Animated.View style={[styles.glow, { backgroundColor: glowColor }, glowStyle]} />
+
         <ArcRing progress={arcProgress} color={arcColor} />
 
         {/* Score overlay */}
@@ -239,11 +239,12 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    top: -30,
     width: 200,
     height: 200,
     borderRadius: 100,
-    alignSelf: 'center',
+    // Centered on arcArea (180x180): offset by -(200-180)/2 = -10
+    top: -10,
+    left: -10,
   },
   arcArea: {
     width: ARC_DIAMETER,

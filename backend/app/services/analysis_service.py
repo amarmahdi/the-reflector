@@ -95,7 +95,26 @@ Return ONLY a valid JSON object with exactly this shape — no markdown, no expl
 
 async def perform_journal_analysis(data: AnalyzeRequest) -> AnalysisResponse:
     """Compress user data, call Gemini, parse and return structured response."""
-    prompt = _build_prompt(data)
     client = GeminiClient()
+
+    if data.prompt_override:
+        # Custom prompt mode — append compressed data and expect a simple text response
+        journal_block = _compress_journal_entries(data.journal_entries)
+        custom_prompt = f"""{data.prompt_override}
+
+=== USER DATA ===
+{journal_block}
+"""
+        raw_text = await client.generate_text(custom_prompt)
+        # Wrap the raw text into an AnalysisResponse shape
+        return AnalysisResponse(
+            patterns=[],
+            insights=[],
+            recommendations=[],
+            risk_level="low",
+            summary=raw_text.strip(),
+        )
+
+    prompt = _build_prompt(data)
     result = await client.analyze_structured(prompt)
     return AnalysisResponse(**result)

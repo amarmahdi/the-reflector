@@ -20,6 +20,10 @@ class AnalyzeRequest(BaseModel):
         default=None,
         description="Current wound tracker state (missed days, penalties)",
     )
+    prompt_override: str | None = Field(
+        default=None,
+        description="Optional custom prompt — bypasses the default analysis prompt and sends this directly to Gemini",
+    )
 
 
 class AnalysisResponse(BaseModel):

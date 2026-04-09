@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Pressable, Text, View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, {
@@ -14,6 +14,8 @@ import { useReflectorStore } from '@/store/useReflectorStore';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/theme';
 import { Screen, StyledInput } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
+import { useAuthStore } from '@/store/useAuthStore';
+import { api } from '@/lib/apiClient';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,6 +42,20 @@ export default function ThePactScreen() {
   const [signedName, setSignedName] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [signed, setSigned] = useState(false);
+  const [aiContract, setAiContract] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+
+  // Reset form when gridId changes (so we don't carry stale data)
+  useEffect(() => {
+    setStep(0);
+    setWhy('');
+    setSacrifice('');
+    setReward('');
+    setSignedName('');
+    setSigned(false);
+    setAiContract(null);
+  }, [gridId]);
 
   // Reanimated progress for hold-to-sign
   const holdProgress = useSharedValue(0);
@@ -220,22 +236,45 @@ export default function ThePactScreen() {
           </View>
         );
 
-      case 3:
+      case 3: {
+        const contractFallback = `"I commit to completing ${routine?.title ?? 'this routine'} for 40 days.\n\nIf I fail, I sacrifice ${sacrifice.trim()}.\n\nIf I succeed, I earn ${reward.trim()}."`;
+
+        // Fetch AI-rephrased contract on first mount of step 3
+        if (!aiContract && !aiLoading && isLoggedIn) {
+          setAiLoading(true);
+          api<{ summary: string }>('/analyze/journal', {
+            method: 'POST',
+            body: {
+              journal_entries: [{
+                date: Date.now(),
+                body: `Routine: ${routine?.title}. Why: ${why.trim()}. Sacrifice if I fail: ${sacrifice.trim()}. Reward if I finish: ${reward.trim()}.`,
+                mood: 'determined',
+              }],
+              discipline_snapshots: [],
+              prompt_override: `You are The Reflector, a stoic discipline mentor. Rephrase this person's accountability pact into a solemn, powerful contract. Write it in first person ("I commit to..."). Keep it under 4 sentences. Be serious, not dramatic. Use their exact routine name, sacrifice, and reward — but make the language feel like a binding oath. Return ONLY the contract text, no preamble.`,
+            },
+          })
+            .then((res) => {
+              const text = res?.summary;
+              if (text && text.length > 20) setAiContract(text);
+            })
+            .catch(() => {})
+            .finally(() => setAiLoading(false));
+        }
+
         return (
           <View style={s.stepContent}>
             <Text style={s.stepIcon}>📜</Text>
             <Text style={s.pactTitle}>SEAL YOUR PACT</Text>
 
             <View style={s.contractBox}>
-              <Text style={s.contractText}>
-                "I commit to completing{' '}
-                <Text style={s.contractHighlight}>{routine?.title ?? 'this routine'}</Text>{' '}
-                for 40 days.{'\n\n'}
-                If I fail, I sacrifice{' '}
-                <Text style={s.contractHighlight}>{sacrifice.trim()}</Text>.{'\n\n'}
-                If I succeed, I earn{' '}
-                <Text style={s.contractHighlight}>{reward.trim()}</Text>."
-              </Text>
+              {aiLoading ? (
+                <Text style={s.contractText}>Forging your pact...</Text>
+              ) : (
+                <Text style={s.contractText}>
+                  {aiContract ?? contractFallback}
+                </Text>
+              )}
             </View>
 
             <Text style={s.signLabel}>Your name:</Text>
@@ -268,6 +307,7 @@ export default function ThePactScreen() {
             </Pressable>
           </View>
         );
+      }
 
       default:
         return null;

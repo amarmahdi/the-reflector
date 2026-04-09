@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  ScrollView,
   StyleSheet,
   Dimensions,
   KeyboardAvoidingView,
@@ -128,10 +129,14 @@ function StepWhy({ onContinue }: { onContinue: (why: string) => void }) {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={s.flex}
     >
-      <View style={s.centeredContent}>
+      <ScrollView
+        contentContainerStyle={s.centeredContent}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
         <Animated.Text style={[s.whyTitle, titleStyle]}>
           Why are you here?
         </Animated.Text>
@@ -165,7 +170,7 @@ function StepWhy({ onContinue }: { onContinue: (why: string) => void }) {
             </Text>
           </Animated.View>
         )}
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -389,7 +394,7 @@ const s = StyleSheet.create({
 
   // Shared centered layout
   centeredContent: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 36,

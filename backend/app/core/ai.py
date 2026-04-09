@@ -43,3 +43,14 @@ class GeminiClient:
             raise ValueError(
                 f"Gemini returned invalid JSON: {exc}\n\nRaw response:\n{raw_text}"
             )
+
+    async def generate_text(self, prompt: str) -> str:
+        """Send a prompt to Gemini and return the raw text response (no JSON parsing)."""
+        if not self.client:
+            raise ValueError("GEMINI_API_KEY is not configured")
+
+        response = await self.client.aio.models.generate_content(
+            model=self.model,
+            contents=prompt,
+        )
+        return response.text.strip()
