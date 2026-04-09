@@ -43,16 +43,8 @@ import type { Achievement } from '@/types/models';
 import { xpForLevel } from '@/types/models';
 import { seedTestData } from '@/lib/seedData';
 
-// Register Notifee handlers at module level (required before any notification fires)
+// Register Notifee background handler at module level (required)
 registerNotifeeBackgroundHandler();
-
-// Register foreground service handler (required for asForegroundService notifications)
-notifee.registerForegroundService(() => {
-  return new Promise(() => {
-    // Keep the service alive until the alarm is dismissed
-    // The promise is resolved when cancelAlarmNotifee() stops the service
-  });
-});
 
 export {
   ErrorBoundary,
@@ -363,9 +355,18 @@ function RootLayoutNav() {
     // Listen for alarm events while app is in foreground
     const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
       if (type === EventType.DELIVERED) {
+        // Alarm fired while app is open — go to alarm screen
         router.push('/alarm' as any);
       }
-      if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
+
+      // DISMISS button — just cancel, don't navigate
+      if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'dismiss-alarm') {
+        notifee.cancelAllNotifications();
+        return;
+      }
+
+      // OPEN button or notification body tapped — go to alarm screen
+      if (type === EventType.PRESS || (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'open-alarm')) {
         router.push('/alarm' as any);
         if (detail.notification?.id) {
           notifee.cancelNotification(detail.notification.id);

@@ -13,12 +13,12 @@ import notifee, {
 } from '@notifee/react-native';
 import { Platform } from 'react-native';
 
-const ALARM_CHANNEL_ID = 'reflector-alarm-v3';
+const ALARM_CHANNEL_ID = 'reflector-alarm-v4';
 const ACTIVITY_CLASS = 'com.anonymous.thereflector.MainActivity';
 
 /**
  * Shared notification config for alarm display.
- * Used by both the trigger notification and the re-displayed immediate notification.
+ * Includes DISMISS + OPEN actions so user can silence from notification.
  */
 function alarmNotificationConfig(title: string, body: string) {
   return {
@@ -29,7 +29,7 @@ function alarmNotificationConfig(title: string, body: string) {
       category: AndroidCategory.ALARM,
       importance: AndroidImportance.HIGH,
       visibility: AndroidVisibility.PUBLIC,
-      asForegroundService: true,
+      sound: 'default',
       fullScreenAction: {
         id: 'wake-alarm',
         launchActivity: ACTIVITY_CLASS,
@@ -37,11 +37,22 @@ function alarmNotificationConfig(title: string, body: string) {
       ongoing: true,
       autoCancel: false,
       pressAction: {
-        id: 'wake-alarm',
+        id: 'open-alarm',
         launchActivity: ACTIVITY_CLASS,
       },
+      // Action buttons visible on the heads-up notification
+      actions: [
+        {
+          title: '🔕 DISMISS',
+          pressAction: { id: 'dismiss-alarm' },
+        },
+        {
+          title: '📱 OPEN',
+          pressAction: { id: 'open-alarm', launchActivity: ACTIVITY_CLASS },
+        },
+      ],
       lights: ['#FF0000', 500, 500] as [string, number, number],
-      vibrationPattern: [0, 1000, 500, 1000, 500, 1000],
+      vibrationPattern: [300, 500, 300, 500],
     },
   };
 }
@@ -125,7 +136,7 @@ export async function scheduleAlarmNotifee(
   }
 
   try {
-    const config = alarmNotificationConfig(label, 'Time to check in. Open The Reflector.');
+    const config = alarmNotificationConfig(label, 'Swipe down to dismiss. Tap OPEN for full alarm.');
     const notifId = await notifee.createTriggerNotification(
       {
         ...(id ? { id } : {}),
@@ -155,9 +166,6 @@ export async function scheduleAlarmNotifee(
 export async function cancelAlarmNotifee(): Promise<void> {
   if (Platform.OS !== 'android') return;
   try {
-    await notifee.stopForegroundService();
-  } catch {}
-  try {
     await notifee.cancelAllNotifications();
     await notifee.cancelTriggerNotifications();
     console.log('[ALARM] All alarms cancelled');
@@ -169,20 +177,20 @@ export async function cancelAlarmNotifee(): Promise<void> {
 /**
  * Background event handler — runs in headless JS when app is killed.
  * When the scheduled trigger fires, it re-displays an IMMEDIATE
- * foreground-service notification to force the device to wake up.
+ * notification with DISMISS/OPEN action buttons and alarm sound.
  */
 export function registerNotifeeBackgroundHandler(): void {
   notifee.onBackgroundEvent(async ({ type, detail }) => {
     console.log('[ALARM] Background event:', type, detail.notification?.title);
 
     if (type === EventType.DELIVERED) {
-      console.log('[ALARM] Trigger DELIVERED — firing foreground-service alarm');
+      console.log('[ALARM] Trigger DELIVERED — firing heads-up alarm');
       try {
         await ensureAlarmChannel();
         await notifee.displayNotification(
           alarmNotificationConfig(
             detail.notification?.title ?? 'WAKE UP, REFLECTOR.',
-            detail.notification?.body ?? 'Your alarm is going off. Face it.'
+            'Swipe down to dismiss. Tap OPEN for full alarm.'
           )
         );
       } catch (e) {
@@ -190,12 +198,18 @@ export function registerNotifeeBackgroundHandler(): void {
       }
     }
 
-    if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
+    // DISMISS button pressed — cancel everything
+    if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'dismiss-alarm') {
+      console.log('[ALARM] DISMISS pressed');
+      await notifee.cancelAllNotifications();
+    }
+
+    // OPEN button or notification body pressed — cancel notification (app will route to /alarm)
+    if (type === EventType.PRESS || (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'open-alarm')) {
+      console.log('[ALARM] OPEN pressed');
       if (detail.notification?.id) {
         await notifee.cancelNotification(detail.notification.id);
       }
-      try { await notifee.stopForegroundService(); } catch {}
-      await notifee.cancelAllNotifications();
     }
   });
 }
