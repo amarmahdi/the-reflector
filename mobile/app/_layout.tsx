@@ -29,13 +29,14 @@ import { useGamificationStore } from '@/store/useGamificationStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { checkAutoBackup } from '@/lib/autoBackup';
 import { COLORS } from '@/constants/theme';
-import { scheduleNotifications } from '@/lib/notifications';
+import { scheduleAllAlarms } from '@/lib/notifications';
 import { ensureAlarmChannel, registerNotifeeBackgroundHandler } from '@/lib/alarmNotifee';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerToastCallback, triggerDisciplineCalculation } from '@/lib/appActions';
 import { ACHIEVEMENT_DEFINITIONS } from '@/lib/achievements';
 import { getTierIndex, getTierForStreak, TIERS } from '@/lib/momentumTiers';
 import type { MomentumTier } from '@/lib/momentumTiers';
+import { useAlarmStore } from '@/store/useAlarmStore';
 import AchievementToast from '@/components/AchievementToast';
 import TierTransition from '@/components/TierTransition';
 import type { Achievement } from '@/types/models';
@@ -465,7 +466,8 @@ function RootLayoutNav() {
 
     const todayTodos = dailyTodos.filter((t) => t.date === todayStart);
     const activeGrids = grids.filter((g) => g.status === 'active');
-    scheduleNotifications(notificationSettings, activeGrids, routines, todayTodos);
+    const alarms = useAlarmStore.getState().alarms;
+    scheduleAllAlarms(alarms, notificationSettings, activeGrids, routines, todayTodos);
 
     // Only redirect to fire once per day — after user reflects, don't ask again
     if (hasFreshScars) {

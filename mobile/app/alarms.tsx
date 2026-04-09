@@ -2,7 +2,7 @@
 // The Reflector – Alarm Manager Screen (Restyled)
 // ──────────────────────────────────────────────
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ScrollView, Switch, Alert } from 'react-native';
 import styled from 'styled-components/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,8 @@ import { haptic } from '@/lib/haptics';
 import { useAlarmStore } from '@/store/useAlarmStore';
 import AlarmConfig from '@/components/AlarmConfig';
 import { Screen, SectionLabel, EmptyState } from '@/components/ui';
+import { scheduleAllAlarms } from '@/lib/notifications';
+import { useReflectorStore } from '@/store/useReflectorStore';
 import type { Alarm, AlarmType } from '@/types/models';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -150,6 +152,17 @@ export default function AlarmsScreen() {
   const standalone = alarms.filter((a) => a.type === 'standalone');
   const routine = alarms.filter((a) => a.type === 'routine');
   const task = alarms.filter((a) => a.type === 'task');
+
+  // Reschedule OS alarms whenever store changes
+  useEffect(() => {
+    const { grids, routines, dailyTodos, notificationSettings } = useReflectorStore.getState();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const todayMs = now.getTime();
+    const activeGrids = grids.filter((g) => g.status === 'active');
+    const todayTodos = dailyTodos.filter((t) => t.date === todayMs);
+    scheduleAllAlarms(alarms, notificationSettings, activeGrids, routines, todayTodos);
+  }, [alarms]);
 
   const renderAlarmCard = (alarm: Alarm) => {
     const isExpanded = expandedId === alarm.id;
