@@ -33,7 +33,7 @@ import styled from 'styled-components/native';
 
 import DisciplineArc from '@/components/DisciplineArc';
 import { useDisciplineStore } from '@/store/useDisciplineStore';
-import GhostCard from '@/components/GhostCard';
+import MirrorCard from '@/components/MirrorCard';
 import MomentumBadge from '@/components/MomentumBadge';
 import { CancelButton, EmptyState, GhostButton, PrimaryButton, ProgressBar, Screen, SectionLabel } from '@/components/ui';
 import { COLORS } from '@/constants/theme';
@@ -985,12 +985,12 @@ export default function HomeScreen() {
             mood: 'neutral',
           }],
           discipline_snapshots: [],
-          prompt_override: `You are The Reflector, a stoic discipline AI. The user is trying to cheat — they want to mark their routine day as complete without finishing their core tasks. Write a short, razor-sharp 2-sentence oath they must agree to. First sentence: make them admit what they're doing. Second sentence: state the consequence — "The grid will remember this lie." or similar. Be cold. Be direct. No exclamation marks. Return ONLY the oath text.`,
+          prompt_override: `You are The Reflector, a firm but wise spiritual accountability guide. The user is trying to mark their day as complete without finishing their core tasks. Write a short, serious 2-sentence testimony they must agree to. First sentence: make them acknowledge what they are doing honestly. Second sentence: remind them that this will be written in their record and they will answer for it. Be firm but not cruel. No exclamation marks. Return ONLY the testimony text.`,
         },
       });
-      setSwearOath(res?.summary ?? 'I swear I completed this day honestly. If I am lying, the grid will carry this scar.');
+      setSwearOath(res?.summary ?? 'I testify that I completed this day honestly. If I am being dishonest, this will be written in my record.');
     } catch {
-      setSwearOath('I swear on my word that I completed this day. If I am lying, let this grid remember.');
+      setSwearOath('I testify before my own conscience that I completed this day. If I am lying, let this record bear witness.');
     }
     setSwearLoading(false);
   }, [heroGrid]);
@@ -1143,8 +1143,8 @@ export default function HomeScreen() {
             </StatusItem>
           </StatusRow>
 
-          {/* ─── 3c. Ghost of Yesterday ─── */}
-          <GhostCard />
+          {/* ─── 3c. The Mirror (Muhasabah) ─── */}
+          <MirrorCard />
 
           {/* ─── 3c. Oracle Teaser (Sun/Mon) ─── */}
           {oracleTeaser && (

@@ -137,7 +137,7 @@ export default function ThePactScreen() {
         return (
           <View style={s.stepContent}>
             <Text style={s.stepIcon}>📜</Text>
-            <Text style={s.pactTitle}>THE PACT</Text>
+            <Text style={s.pactTitle}>YOUR NIYYAH</Text>
             <Text style={s.stepPrompt}>
               Before you begin, answer honestly:
             </Text>
@@ -174,7 +174,7 @@ export default function ThePactScreen() {
         return (
           <View style={s.stepContent}>
             <Text style={s.stepIcon}>⚖️</Text>
-            <Text style={s.stepPrompt}>The price of quitting:</Text>
+            <Text style={s.stepPrompt}>The cost of breaking your word:</Text>
             <Text style={s.stepQuestion}>
               What will you sacrifice if you quit before day 40?
             </Text>
@@ -230,7 +230,7 @@ export default function ThePactScreen() {
                 disabled={!canAdvanceStep2}
                 style={[s.nextBtn, s.nextBtnFlex, !canAdvanceStep2 && s.disabledBtn]}
               >
-                <Text style={s.nextBtnText}>Seal the Pact →</Text>
+                <Text style={s.nextBtnText}>Set Your Intention →</Text>
               </Pressable>
             </View>
           </View>
@@ -251,7 +251,7 @@ export default function ThePactScreen() {
                 mood: 'determined',
               }],
               discipline_snapshots: [],
-              prompt_override: `You are The Reflector, a stoic discipline mentor. Rephrase this person's accountability pact into a solemn, powerful contract. Write it in first person ("I commit to..."). Keep it under 4 sentences. Be serious, not dramatic. Use their exact routine name, sacrifice, and reward — but make the language feel like a binding oath. Return ONLY the contract text, no preamble.`,
+              prompt_override: `You are The Reflector, a wise and firm spiritual accountability guide. Rephrase this person's intention (Niyyah) into a solemn, meaningful commitment. Write it in first person ("I commit to..."). Keep it under 4 sentences. Be serious but compassionate. Use their exact routine name, sacrifice, and reward — but make the language feel like a sacred personal commitment. Return ONLY the commitment text, no preamble.`,
             },
           })
             .then((res) => {
@@ -265,11 +265,11 @@ export default function ThePactScreen() {
         return (
           <View style={s.stepContent}>
             <Text style={s.stepIcon}>📜</Text>
-            <Text style={s.pactTitle}>SEAL YOUR PACT</Text>
+            <Text style={s.pactTitle}>SEAL YOUR NIYYAH</Text>
 
             <View style={s.contractBox}>
               {aiLoading ? (
-                <Text style={s.contractText}>Forging your pact...</Text>
+                <Text style={s.contractText}>Preparing your Niyyah...</Text>
               ) : (
                 <Text style={s.contractText}>
                   {aiContract ?? contractFallback}
@@ -294,7 +294,7 @@ export default function ThePactScreen() {
                 <Animated.View style={[s.holdProgress, animatedProgressStyle]} />
                 <Text style={s.holdBtnText}>
                   {signed
-                    ? '✓ Pact Sealed'
+                    ? '✓ Niyyah Sealed'
                     : isSigning
                       ? 'Hold...'
                       : 'Hold to Sign — 3 seconds'}

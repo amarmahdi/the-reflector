@@ -316,7 +316,7 @@ export default function EditRoutineScreen() {
     return Math.round((completed / grid.days.length) * 100);
   };
 
-  const getGridScars = (grid: typeof grids[0]) => {
+  const getGridLapses = (grid: typeof grids[0]) => {
     return grid.days.filter((d) => d.status === 'scarred').length;
   };
 
@@ -392,7 +392,7 @@ export default function EditRoutineScreen() {
                     Completion <GridStatValue>{getGridCompletion(grid)}%</GridStatValue>
                   </GridStat>
                   <GridStat>
-                    Scars <GridStatValue>{getGridScars(grid)}</GridStatValue>
+                    Lapses <GridStatValue>{getGridLapses(grid)}</GridStatValue>
                   </GridStat>
                 </GridStats>
               </GridCard>

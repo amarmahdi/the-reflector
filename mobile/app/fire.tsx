@@ -19,6 +19,7 @@ import { haptic } from '@/lib/haptics';
 import { onJournalEntryCreated, onGridFailed, onDayScarred } from '@/lib/appActions';
 import { Screen, PrimaryButton, StyledInput } from '@/components/ui';
 import type { Consequence } from '@/lib/consequenceEngine';
+// NOTE: Consequence type kept for compat; renamed conceptually to "Correction"
 
 // ── Blood-red background ─────────────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ const Counter = styled.Text`
   letter-spacing: ${TYPOGRAPHY.wide}px;
 `;
 
-// Pact reminder card — aggressive confrontation style
+// Niyyah reminder card — shows their intention when they falter
 const PactReminder = styled.View`
   background-color: rgba(139, 74, 74, 0.08);
   border-width: 1.5px;
@@ -132,7 +133,7 @@ const PactConfrontation = styled.Text`
   margin-top: ${SPACING.md}px;
 `;
 
-// Consequence banner — shown after reflection is submitted
+// Correction banner — shown after reflection is submitted
 const ConsequenceBanner = styled.View`
   background-color: rgba(139, 74, 74, 0.15);
   border-width: 1px;
@@ -220,12 +221,12 @@ export default function TheFireScreen() {
     transform: [{ translateY: consequenceTranslateY.value }],
   }));
 
-  // Derive scarred entries from raw state
+  // Derive lapsed entries from raw state
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const todayStart = now.getTime();
 
-  const scarredEntries = grids
+  const lapsedEntries = grids
     .filter((g) => g.status === 'active')
     .flatMap((grid) =>
       grid.days
@@ -233,7 +234,7 @@ export default function TheFireScreen() {
         .map((day) => ({ grid, day }))
     );
 
-  const current = scarredEntries[currentIndex];
+  const current = lapsedEntries[currentIndex];
   const routine = current
     ? routines.find((r) => r.id === current.grid.routineId)
     : undefined;
@@ -261,7 +262,7 @@ export default function TheFireScreen() {
     setSubmitting(true);
     haptic.error();
 
-    // Brief "Scarred." state before proceeding
+    // Brief "Recorded." state before proceeding
     await new Promise<void>((resolve) => setTimeout(resolve, 1000));
 
     markDayScarred(current.grid.id, current.day.dayIndex, reason.trim());
@@ -282,7 +283,7 @@ export default function TheFireScreen() {
     // Update gamification stats for journal entry
     onJournalEntryCreated();
 
-    // Apply consequence (XP penalty + wound tracking + forced reflection flag)
+    // Apply correction (XP adjustment + lapse tracking)
     const consequence = await onDayScarred();
     setPendingConsequence(consequence);
     setSubmitting(false);
@@ -302,20 +303,20 @@ export default function TheFireScreen() {
     // Reset consequence animation for next entry
     consequenceTranslateY.value = 120;
     consequenceOpacity.value = 0;
-    if (currentIndex + 1 < scarredEntries.length) {
+    if (currentIndex + 1 < lapsedEntries.length) {
       setCurrentIndex((prev) => prev + 1);
     } else {
       router.replace('/');
     }
   };
 
-  // No scars to reflect on — go home
-  if (scarredEntries.length === 0 || !current) {
+  // No lapses to reflect on — go home
+  if (lapsedEntries.length === 0 || !current) {
     return (
       <FireScreen>
         <Title>The path is clear.</Title>
-        <Subtitle>There are no scars to tend. Walk forward.</Subtitle>
-        <PrimaryButton onPress={() => router.replace('/')} label="Continue the path." />
+        <Subtitle>There are no lapses to account for. Walk forward with gratitude.</Subtitle>
+        <PrimaryButton onPress={() => router.replace('/')} label="Continue" />
       </FireScreen>
     );
   }
@@ -326,10 +327,10 @@ export default function TheFireScreen() {
       <Animated.View style={[styles.vignette, vignetteStyle]} pointerEvents="none" />
 
       <Animated.View style={[styles.contentWrap, contentStyle]}>
-        <Title>You broke a promise.</Title>
+        <Title>A lapse in your path.</Title>
         <Subtitle>
-          Before you continue, you must face what happened.
-          This is not punishment. This is truth.
+          Before you continue, account for what happened.
+          This is not punishment. This is Muhasabah — accounting for yourself before you are accounted for.
         </Subtitle>
 
         <RoutineName>{routine?.title ?? 'Unknown Routine'}</RoutineName>
@@ -338,13 +339,13 @@ export default function TheFireScreen() {
         {/* Pact confrontation — show their own words */}
         {currentPact && (
           <PactReminder>
-            <PactReminderTitle>📜 You promised:</PactReminderTitle>
+            <PactReminderTitle>📜 YOUR NIYYAH</PactReminderTitle>
             <PactReminderText>"{currentPact.why}"</PactReminderText>
 
-            <PactReminderLabel>You said you'd sacrifice:</PactReminderLabel>
+            <PactReminderLabel>What you committed to sacrifice:</PactReminderLabel>
             <PactReminderText>"{currentPact.sacrifice}"</PactReminderText>
 
-            <PactConfrontation>Are you abandoning your word?</PactConfrontation>
+            <PactConfrontation>Remember why you started.</PactConfrontation>
           </PactReminder>
         )}
 
@@ -353,14 +354,14 @@ export default function TheFireScreen() {
           <>
             <Animated.View style={consequenceStyle}>
               <ConsequenceBanner>
-                <ConsequenceTitle>THE COST</ConsequenceTitle>
+                <ConsequenceTitle>THE CORRECTION</ConsequenceTitle>
                 <ConsequenceMessage>{pendingConsequence.message}</ConsequenceMessage>
                 <ConsequenceXP>-{pendingConsequence.xpPenalty} XP</ConsequenceXP>
               </ConsequenceBanner>
             </Animated.View>
             <PrimaryButton
               onPress={handleContinue}
-              label={currentIndex + 1 < scarredEntries.length ? 'Next wound.' : 'Continue'}
+              label={currentIndex + 1 < lapsedEntries.length ? 'Next lapse.' : 'Continue'}
               style={{ marginTop: SPACING.xxl }}
             />
           </>
@@ -375,7 +376,7 @@ export default function TheFireScreen() {
               multiline
               value={reason}
               onChangeText={setReason}
-              placeholder="What defeated you?"
+              placeholder="What got in the way?"
               textAlignVertical="top"
               style={styles.reflectionInput}
             />
@@ -396,13 +397,13 @@ export default function TheFireScreen() {
               ]}
             >
               <Text style={styles.submitBtnText}>
-                {submitting ? 'Scarred.' : 'I accept this scar.'}
+                {submitting ? 'Recorded.' : 'I acknowledge this lapse.'}
               </Text>
             </Pressable>
 
-            {scarredEntries.length > 1 && (
+            {lapsedEntries.length > 1 && (
               <Counter>
-                Wound {currentIndex + 1} of {scarredEntries.length}
+                Lapse {currentIndex + 1} of {lapsedEntries.length}
               </Counter>
             )}
           </>
