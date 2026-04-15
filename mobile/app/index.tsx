@@ -42,6 +42,7 @@ import { formatTimeHHMM, getFormattedDate, getGreeting, isAfter5PM } from '@/lib
 import { haptic } from '@/lib/haptics';
 import { api } from '@/lib/apiClient';
 import { getCachedOracleVerdict } from '@/lib/oracle';
+import { getHomeGreeting } from '@/lib/aiService';
 import { useAlarmStore } from '@/store/useAlarmStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { useJournalStore } from '@/store/useJournalStore';
@@ -614,87 +615,35 @@ const XpFloatText = styled(Animated.Text)`
   right: 20px;
 `;
 
-// ── Swear Modal ──────────────────────────────────────────────────────────────
+// ── AI Greeting Card ─────────────────────────────────────────────────────────
 
-const SwearOverlay = styled.View`
-  flex: 1;
-  background-color: rgba(0, 0, 0, 0.85);
-  justify-content: center;
-  align-items: center;
-  padding: 32px;
-`;
-
-const SwearCard = styled.View`
-  background-color: ${COLORS.surface0};
-  border-width: 1.5px;
-  border-color: ${COLORS.warmRed};
+const AIGreetingCard = styled.View`
+  background-color: ${COLORS.surface1};
   border-radius: 16px;
-  padding: 32px 24px;
-  width: 100%;
-  align-items: center;
-  gap: 16px;
+  border-width: 1px;
+  border-color: ${COLORS.border};
+  padding: 16px 20px;
+  margin-horizontal: 20px;
+  margin-bottom: 16px;
 `;
 
-const SwearTitle = styled.Text`
-  color: ${COLORS.warmRed};
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: 2px;
-  text-align: center;
-`;
-
-const SwearSubtitle = styled.Text`
-  color: ${COLORS.textDim};
-  font-size: 13px;
-  font-weight: 500;
-  text-align: center;
-`;
-
-const SwearOathText = styled.Text`
-  color: ${COLORS.textSecondary};
-  font-size: 15px;
-  font-weight: 500;
-  font-style: italic;
-  line-height: 22px;
-  text-align: center;
-  padding: 16px 0;
-`;
-
-const SwearButton = styled.Pressable`
-  background-color: ${COLORS.warmRed};
-  border-radius: 12px;
-  padding: 16px 32px;
-  align-items: center;
-  width: 100%;
-  margin-top: 8px;
-`;
-
-const SwearButtonText = styled.Text`
-  color: ${COLORS.white};
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
-`;
-
-const SwearConfirmedText = styled.Text`
-  color: ${COLORS.warmRed};
-  font-size: 14px;
-  font-weight: 600;
-  font-style: italic;
-  text-align: center;
-  margin-top: 8px;
-`;
-
-const SwearCancelButton = styled.Pressable`
-  padding: 12px;
-  margin-top: 4px;
-`;
-
-const SwearCancelText = styled.Text`
+const AIGreetingLabel = styled.Text`
   color: ${COLORS.crimson};
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 `;
+
+const AIGreetingText = styled.Text`
+  color: ${COLORS.textSecondary};
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  font-style: italic;
+`;
+
 
 // ── Swipeable Todo Item ──────────────────────────────────────────────────────
 
@@ -883,6 +832,14 @@ export default function HomeScreen() {
         })
         .catch(() => {});
     }
+  }, []);
+
+  // AI Greeting (cached 6h, data-aware)
+  const [aiGreeting, setAiGreeting] = useState<string | null>(null);
+  useEffect(() => {
+    getHomeGreeting()
+      .then((greeting) => { if (greeting) setAiGreeting(greeting); })
+      .catch(() => {});
   }, []);
 
   // Today
@@ -1115,7 +1072,15 @@ export default function HomeScreen() {
           {/* ─── 3c. The Mirror (Muhasabah) ─── */}
           <MirrorCard />
 
-          {/* ─── 3c. Oracle Teaser (Sun/Mon) ─── */}
+          {/* ─── 3d. AI Greeting ─── */}
+          {aiGreeting && (
+            <AIGreetingCard>
+              <AIGreetingLabel>THE REFLECTOR</AIGreetingLabel>
+              <AIGreetingText>{aiGreeting}</AIGreetingText>
+            </AIGreetingCard>
+          )}
+
+          {/* ─── 3e. Oracle Teaser (Sun/Mon) ─── */}
           {oracleTeaser && (
             <OracleTeaserCard
               onPress={() => {

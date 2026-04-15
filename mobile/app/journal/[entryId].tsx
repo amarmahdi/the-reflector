@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import styled from 'styled-components/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -10,6 +10,7 @@ import { MOOD_CONFIG, type JournalMood } from '@/types/models';
 import { haptic } from '@/lib/haptics';
 import MoodPicker from '@/components/MoodPicker';
 import { Screen, StyledInput, PrimaryButton, DangerButton } from '@/components/ui';
+import { getJournalInsight } from '@/lib/aiService';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,8 @@ export default function JournalEntryDetailScreen() {
   const [editBody, setEditBody] = useState('');
   const [editMood, setEditMood] = useState<JournalMood | null>(null);
   const [editTags, setEditTags] = useState('');
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [aiInsightLoading, setAiInsightLoading] = useState(false);
 
   if (!entry) {
     return (
@@ -189,6 +192,16 @@ export default function JournalEntryDetailScreen() {
   const mood = MOOD_CONFIG[entry.mood];
   const linkedGrid = entry.linkedGridId ? grids.find((g) => g.id === entry.linkedGridId) : null;
   const linkedRoutine = linkedGrid ? routines.find((r) => r.id === linkedGrid.routineId) : null;
+
+  // Fetch AI insight for entries > 100 chars
+  useEffect(() => {
+    if (!entry || entry.body.length < 100) return;
+    setAiInsightLoading(true);
+    getJournalInsight(entry.id, entry.body, entry.mood)
+      .then((insight) => { if (insight) setAiInsight(insight); })
+      .catch(() => {})
+      .finally(() => setAiInsightLoading(false));
+  }, [entry?.id]);
 
   const startEdit = () => {
     setEditTitle(entry.title);
@@ -270,6 +283,23 @@ export default function JournalEntryDetailScreen() {
                   </TagsRow>
                 </TagsSection>
               )}
+
+              {/* AI Insight */}
+              {aiInsightLoading && (
+                <>
+                  <Divider />
+                  <TagsLabel>THE REFLECTOR</TagsLabel>
+                  <EntryBody style={{ fontStyle: 'italic', fontSize: 13 }}>Analyzing...</EntryBody>
+                </>
+              )}
+              {aiInsight && (
+                <>
+                  <Divider />
+                  <TagsLabel>THE REFLECTOR</TagsLabel>
+                  <EntryBody style={{ fontStyle: 'italic', fontSize: 13 }}>{aiInsight}</EntryBody>
+                </>
+              )}
+
 
               <ActionRow>
                 <PrimaryButton onPress={() => { haptic.light(); startEdit(); }} label="Edit" style={{ flex: 1 }} />

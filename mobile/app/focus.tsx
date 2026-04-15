@@ -26,6 +26,7 @@ import { FOCUS_PRESETS, FocusSessionType } from '@/types/models';
 import { Screen, SectionLabel, PrimaryButton, GhostButton } from '@/components/ui';
 import CircularTimer from '@/components/CircularTimer';
 import FocusStats from '@/components/FocusStats';
+import { getFocusMotivation } from '@/lib/aiService';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -352,6 +353,33 @@ const EmptySessionsText = styled.Text`
   padding: 40px 20px;
 `;
 
+const AIFocusCard = styled.View`
+  background-color: ${COLORS.surface1};
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: ${COLORS.border};
+  padding: 14px 16px;
+  width: 100%;
+  margin-bottom: 20px;
+`;
+
+const AIFocusLabel = styled.Text`
+  color: ${COLORS.crimson};
+  font-size: 9px;
+  font-weight: ${TYPOGRAPHY.bold};
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+`;
+
+const AIFocusText = styled.Text`
+  color: ${COLORS.textSecondary};
+  font-size: 13px;
+  font-weight: ${TYPOGRAPHY.medium};
+  line-height: 19px;
+  font-style: italic;
+`;
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function FocusTimerScreen() {
@@ -380,6 +408,8 @@ export default function FocusTimerScreen() {
   const [xpAmount, setXpAmount] = useState(0);
   const startTimeRef = useRef<number>(0);
   const elapsedBeforePauseRef = useRef<number>(0);
+  const [aiMotivation, setAiMotivation] = useState<string | null>(null);
+  const [aiCompletion, setAiCompletion] = useState<string | null>(null);
 
   // Get duration for selected type
   const getDurationMs = useCallback(
@@ -398,6 +428,13 @@ export default function FocusTimerScreen() {
       setTotalDurationMs(duration);
     }
   }, [selectedType, customMinutes, timerState, getDurationMs]);
+
+  // Fetch AI motivation on mount
+  useEffect(() => {
+    getFocusMotivation('before')
+      .then((msg) => { if (msg) setAiMotivation(msg); })
+      .catch(() => {});
+  }, []);
 
   // Timer interval
   useEffect(() => {
@@ -440,6 +477,11 @@ export default function FocusTimerScreen() {
     setXpAmount(earnedXP);
     setShowXP(true);
     setTimeout(() => setShowXP(false), 3000);
+
+    // Fetch AI completion message
+    getFocusMotivation('after', Math.round(totalDurationMs / 60000))
+      .then((msg) => { if (msg) setAiCompletion(msg); })
+      .catch(() => {});
   }, [totalDurationMs, selectedType, addFocusSession]);
 
   const handleStart = () => {
@@ -564,6 +606,16 @@ export default function FocusTimerScreen() {
             </ContextSection>
           )}
 
+          {/* ── AI Focus Motivation ─── */}
+          {aiMotivation && timerState === 'idle' && (
+            <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ width: '100%' }}>
+              <AIFocusCard>
+                <AIFocusLabel>THE REFLECTOR</AIFocusLabel>
+                <AIFocusText>{aiMotivation}</AIFocusText>
+              </AIFocusCard>
+            </Animated.View>
+          )}
+
           {/* ── Session Type Selector ────────────────────────────── */}
           <SelectorRow>
             {PRESET_KEYS.map((type) => {
@@ -635,6 +687,12 @@ export default function FocusTimerScreen() {
                 </XPFloat>
               )}
               <PrimaryButton onPress={handleStartNew} label="Start Another" />
+              {aiCompletion && (
+                <AIFocusCard style={{ marginTop: 16 }}>
+                  <AIFocusLabel>THE REFLECTOR</AIFocusLabel>
+                  <AIFocusText>{aiCompletion}</AIFocusText>
+                </AIFocusCard>
+              )}
             </CompletionContainer>
           ) : (
             <ControlsRow>

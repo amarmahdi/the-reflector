@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ScrollView } from 'react-native';
 import styled from 'styled-components/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +19,7 @@ import TrendChart from '@/components/TrendChart';
 import WeeklySummaryCard from '@/components/WeeklySummaryCard';
 import { useWeekFocusMinutes } from '@/hooks/useStoreData';
 import { Screen, EmptyState, SectionHeader, Card, StatPill, ProgressBar } from '@/components/ui';
+import { getInsightNarrative } from '@/lib/aiService';
 
 // ── Styled Components ────────────────────────────────────────────────────────
 
@@ -58,6 +59,31 @@ const InsightQuoteHighlight = styled.Text`
   color: ${COLORS.crimson};
   font-weight: 700;
   font-style: normal;
+`;
+
+const AINarrativeCard = styled.View`
+  background-color: ${COLORS.surface1};
+  border-radius: 16px;
+  border-width: 1px;
+  border-color: ${COLORS.border};
+  padding: 20px;
+  margin: 16px 20px 0;
+`;
+
+const AINarrativeLabel = styled.Text`
+  color: ${COLORS.crimson};
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+`;
+
+const AINarrativeText = styled.Text`
+  color: ${COLORS.textSecondary};
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
 `;
 
 
@@ -307,6 +333,14 @@ export default function InsightsScreen() {
   const dailyScores = useMemo(() => computeDailyScores(14), [grids, routines]);
   const moodInsight = useMemo(() => computeMoodCompletionInsight(), [grids]);
 
+  // AI Narrative
+  const [aiNarrative, setAiNarrative] = useState<string | null>(null);
+  useEffect(() => {
+    getInsightNarrative()
+      .then((n) => { if (n) setAiNarrative(n); })
+      .catch(() => {});
+  }, []);
+
   const hasData =
     results.correlations.length > 0 ||
     results.wordCloud.length > 0 ||
@@ -380,6 +414,14 @@ export default function InsightsScreen() {
               ))}
             </InsightQuoteText>
           </InsightQuoteCard>
+        )}
+
+        {/* AI Narrative */}
+        {aiNarrative && (
+          <AINarrativeCard>
+            <AINarrativeLabel>AI ANALYSIS — LAST 7 DAYS</AINarrativeLabel>
+            <AINarrativeText>{aiNarrative}</AINarrativeText>
+          </AINarrativeCard>
         )}
 
         {/* Weekly Summary */}

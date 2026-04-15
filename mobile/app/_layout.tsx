@@ -84,6 +84,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
     { label: 'The Bell', icon: '⏰', route: '/alarms' },
     { label: 'Disciplines', icon: '🔄', route: '/recurring-tasks' },
     { label: 'Week in Review', icon: '📅', route: '/weekly-review' },
+    { label: 'Daily Review', icon: '🪞', route: '/daily-review' },
   ];
 
   const navigate = (route: string) => {
@@ -544,6 +545,27 @@ function RootLayoutNav() {
     })();
   }, [hasOnboarded]);
 
+  // Daily review auto-trigger at 9 PM
+  useEffect(() => {
+    if (!hasOnboarded) return;
+
+    (async () => {
+      const now = new Date();
+      const hour = now.getHours();
+      if (hour < 21) return; // Only after 9 PM
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.getTime().toString();
+
+      const lastDailyReview = await AsyncStorage.getItem('reflector-last-daily-review');
+      if (lastDailyReview === todayStr) return; // Already triggered today
+
+      await AsyncStorage.setItem('reflector-last-daily-review', todayStr);
+      router.push('/daily-review' as any);
+    })();
+  }, [hasOnboarded]);
+
   // Common screen options
   const screenOptions = {
     headerStyle: { backgroundColor: COLORS.surface0 },
@@ -587,6 +609,7 @@ function RootLayoutNav() {
         <Drawer.Screen name="recurring-tasks" options={{ title: 'Disciplines', drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="alarms" options={{ title: 'The Bell', drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="weekly-review" options={{ title: 'Week in Review', drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="daily-review" options={{ title: 'Daily Review', drawerItemStyle: { display: 'none' } }} />
 
         {/* Full-screen modals */}
         <Drawer.Screen

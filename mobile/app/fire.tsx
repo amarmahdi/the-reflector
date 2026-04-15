@@ -19,6 +19,7 @@ import { haptic } from '@/lib/haptics';
 import { onJournalEntryCreated, onGridFailed, onDayScarred } from '@/lib/appActions';
 import { Screen, PrimaryButton, GhostButton, StyledInput } from '@/components/ui';
 import type { Consequence } from '@/lib/consequenceEngine';
+import { getLapseReflection } from '@/lib/aiService';
 // NOTE: Consequence type kept for compat; renamed conceptually to "Correction"
 
 // ── Blood-red background ─────────────────────────────────────────────────────
@@ -182,6 +183,8 @@ export default function TheFireScreen() {
   const [reason, setReason] = useState('');
   const [pendingConsequence, setPendingConsequence] = useState<Consequence | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [aiReflection, setAiReflection] = useState<string | null>(null);
+  const [aiReflectionLoading, setAiReflectionLoading] = useState(false);
 
   // ── Animations ──
   const vignetteOpacity = useSharedValue(0.15);
@@ -292,6 +295,13 @@ export default function TheFireScreen() {
     // Trigger consequence card animation
     showConsequenceAnimation();
 
+    // Fetch AI lapse reflection (async, non-blocking)
+    setAiReflectionLoading(true);
+    getLapseReflection(reason.trim(), routine?.title ?? 'Unknown', current.day.dayIndex)
+      .then((reflection) => { if (reflection) setAiReflection(reflection); })
+      .catch(() => {})
+      .finally(() => setAiReflectionLoading(false));
+
     if (checkHardReset(current.grid.id)) {
       failGrid(current.grid.id);
       onGridFailed(current.grid.id);
@@ -300,6 +310,7 @@ export default function TheFireScreen() {
 
   const handleContinue = () => {
     setPendingConsequence(null);
+    setAiReflection(null);
     setReason('');
     // Reset consequence animation for next entry
     consequenceTranslateY.value = 120;
@@ -387,6 +398,16 @@ export default function TheFireScreen() {
                 <ConsequenceXP>-{pendingConsequence.xpPenalty} XP</ConsequenceXP>
               </ConsequenceBanner>
             </Animated.View>
+            {/* AI Lapse Reflection */}
+            {aiReflectionLoading && (
+              <Text style={styles.aiReflectionLoading}>Reflecting...</Text>
+            )}
+            {aiReflection && (
+              <Animated.View style={[styles.aiReflectionCard]}>
+                <Text style={styles.aiReflectionLabel}>THE REFLECTOR</Text>
+                <Text style={styles.aiReflectionText}>{aiReflection}</Text>
+              </Animated.View>
+            )}
             <PrimaryButton
               onPress={handleContinue}
               label={currentIndex + 1 < lapsedEntries.length ? 'Next lapse.' : 'Continue'}
@@ -483,5 +504,34 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.caption,
     fontWeight: TYPOGRAPHY.bold,
     letterSpacing: TYPOGRAPHY.wide,
+  },
+  aiReflectionLoading: {
+    color: COLORS.textDim,
+    fontSize: TYPOGRAPHY.caption,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: SPACING.lg,
+  },
+  aiReflectionCard: {
+    backgroundColor: 'rgba(139, 74, 74, 0.08)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginTop: SPACING.lg,
+  },
+  aiReflectionLabel: {
+    color: COLORS.crimson,
+    fontSize: 9,
+    fontWeight: TYPOGRAPHY.bold,
+    letterSpacing: 2,
+    marginBottom: SPACING.xs,
+  },
+  aiReflectionText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.body,
+    fontWeight: TYPOGRAPHY.medium,
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
 });
