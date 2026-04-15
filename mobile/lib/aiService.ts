@@ -2,13 +2,14 @@
 // The Reflector – AI Service
 // ──────────────────────────────────────────────
 // Central AI service with typed methods for each use case.
-// Uses the context builder to feed Gemini full awareness.
+// Supports multiple AI providers (Gemini, DeepSeek, OpenAI).
 // Caches intelligently to minimize API calls.
 // Never crashes — returns null on failure.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '@/lib/apiClient';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useAISettingsStore } from '@/store/useAISettingsStore';
 import {
   buildFullContext,
   compressContext,
@@ -90,25 +91,109 @@ async function setCache<T>(key: string, data: T, ttlMs: number): Promise<void> {
   }
 }
 
-// ── Core API Call ────────────────────────────────────────────────────────────
+// ── Direct API call to OpenAI-compatible providers (DeepSeek, OpenAI) ───────
 
-async function callAI(prompt: string, contextData: string): Promise<AnalysisResponse | null> {
-  const { isLoggedIn } = useAuthStore.getState();
-  if (!isLoggedIn) return null;
-
+async function callOpenAICompatible(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  userMessage: string,
+): Promise<AnalysisResponse | null> {
   try {
-    const response = await api<AnalysisResponse>('/analyze/journal', {
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',
-      body: {
-        journal_entries: [{ date: Date.now(), body: contextData, mood: 'neutral' }],
-        discipline_snapshots: [],
-        prompt_override: `${SYSTEM_IDENTITY}\n\n${prompt}\n\n=== USER DATA ===\n${contextData}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
       },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      }),
     });
-    return response;
-  } catch {
+
+    if (!response.ok) {
+      console.warn(`AI provider error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const rawText = data.choices?.[0]?.message?.content ?? '';
+
+    // Try to parse as JSON first
+    try {
+      const cleaned = rawText
+        .replace(/^```(?:json)?\s*\n?/m, '')
+        .replace(/\n?```\s*$/m, '')
+        .trim();
+      const parsed = JSON.parse(cleaned);
+      return {
+        patterns: parsed.patterns ?? [],
+        insights: parsed.insights ?? [],
+        recommendations: parsed.recommendations ?? [],
+        risk_level: parsed.risk_level ?? 'low',
+        summary: parsed.summary ?? rawText,
+      };
+    } catch {
+      // Not JSON — return as summary text
+      return {
+        patterns: [],
+        insights: [],
+        recommendations: [],
+        risk_level: 'low',
+        summary: rawText.replace(/^["']|["']$/g, '').trim(),
+      };
+    }
+  } catch (err) {
+    console.warn('AI provider call failed:', err);
     return null;
   }
+}
+
+// ── Core API Call (routes to correct provider) ──────────────────────────────
+
+async function callAI(prompt: string, contextData: string): Promise<AnalysisResponse | null> {
+  const config = useAISettingsStore.getState().getActiveConfig();
+
+  // Gemini: route through existing backend
+  if (config.id === 'gemini') {
+    const { isLoggedIn } = useAuthStore.getState();
+    if (!isLoggedIn) return null;
+
+    try {
+      const response = await api<AnalysisResponse>('/analyze/journal', {
+        method: 'POST',
+        body: {
+          journal_entries: [{ date: Date.now(), body: contextData, mood: 'neutral' }],
+          discipline_snapshots: [],
+          prompt_override: `${SYSTEM_IDENTITY}\n\n${prompt}\n\n=== USER DATA ===\n${contextData}`,
+        },
+      });
+      return response;
+    } catch {
+      return null;
+    }
+  }
+
+  // DeepSeek / OpenAI: call directly
+  if (!config.apiKey) {
+    console.warn(`No API key set for ${config.label}`);
+    return null;
+  }
+
+  return callOpenAICompatible(
+    config.baseUrl,
+    config.apiKey,
+    config.model,
+    SYSTEM_IDENTITY,
+    `${prompt}\n\n=== USER DATA ===\n${contextData}`,
+  );
 }
 
 // ── Public Methods ───────────────────────────────────────────────────────────

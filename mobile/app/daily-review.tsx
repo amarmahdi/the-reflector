@@ -298,9 +298,16 @@ export default function DailyReviewScreen() {
               />
             </>
           ) : (
-            <EmptyText>
-              The Reflector needs more data to analyze your day. Complete some tasks, focus sessions, or journal entries first.
-            </EmptyText>
+            <>
+              <EmptyText>
+                Could not generate analysis right now. Check your AI provider settings or internet connection.
+              </EmptyText>
+              <PrimaryButton
+                onPress={handleRefresh}
+                label={refreshing ? 'Trying...' : 'Try Again'}
+                style={{ marginTop: 8, opacity: refreshing ? 0.5 : 1 }}
+              />
+            </>
           )}
         </ContentPad>
       </ScrollView>

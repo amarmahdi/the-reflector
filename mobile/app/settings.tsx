@@ -17,6 +17,7 @@ import { exportAllData, importData, getStorageSize, clearAllData } from '@/lib/d
 import { manualBackup, restoreFromCloud } from '@/lib/autoBackup';
 import { useAuthStore } from '@/store/useAuthStore';
 import { STORE_KEYS } from '@/store/keys';
+import { useAISettingsStore, type AIProvider } from '@/store/useAISettingsStore';
 import AsyncStorageLib from '@react-native-async-storage/async-storage';
 import { xpForLevel } from '@/types/models';
 
@@ -331,6 +332,22 @@ export default function SettingsScreen() {
   const setAutoBackup = useAuthStore((s) => s.setAutoBackup);
   const lastBackupAt = useAuthStore((s) => s.lastBackupAt);
 
+  // AI settings
+  const aiActiveProvider = useAISettingsStore((s) => s.activeProvider);
+  const aiApiKeys = useAISettingsStore((s) => s.apiKeys);
+  const setAIProvider = useAISettingsStore((s) => s.setActiveProvider);
+  const saveApiKey = useAISettingsStore((s) => s.setApiKey);
+  const [activeAIProvider, setActiveAIProviderLocal] = useState<AIProvider>(aiActiveProvider);
+  const [editingApiKey, setEditingApiKey] = useState(aiApiKeys[aiActiveProvider] ?? '');
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  const setActiveAIProvider = (provider: AIProvider) => {
+    setActiveAIProviderLocal(provider);
+    setAIProvider(provider);
+    setEditingApiKey(aiApiKeys[provider] ?? '');
+    setShowApiKey(false);
+  };
+
   useEffect(() => {
     setDownloads(listDownloadedSounds());
     getStorageSize().then((s) => setStorageInfo(`Using ${s.formatted}`));
@@ -612,6 +629,57 @@ export default function SettingsScreen() {
               <ChevronText>›</ChevronText>
             </LinkRow>
           ))}
+
+          {/* AI Provider Settings */}
+          <SectionLabel>THE MIND</SectionLabel>
+          <HintText>Select your AI provider. DeepSeek and OpenAI are called directly from the app — no backend needed.</HintText>
+          <OptionRow>
+            {(['gemini', 'deepseek', 'openai'] as const).map((provider) => (
+              <OptionBtn
+                key={provider}
+                active={activeAIProvider === provider}
+                onPress={() => {
+                  haptic.selection();
+                  setActiveAIProvider(provider);
+                }}
+              >
+                <OptionBtnText active={activeAIProvider === provider}>
+                  {provider === 'gemini' ? 'GEMINI' : provider === 'deepseek' ? 'DEEPSEEK' : 'OPENAI'}
+                </OptionBtnText>
+              </OptionBtn>
+            ))}
+          </OptionRow>
+
+          {activeAIProvider !== 'gemini' && (
+            <>
+              <HintText>API Key for {activeAIProvider === 'deepseek' ? 'DeepSeek' : 'OpenAI'}</HintText>
+              <YtInputRow>
+                <YtInput
+                  value={editingApiKey}
+                  onChangeText={setEditingApiKey}
+                  placeholder="sk-..."
+                  placeholderTextColor={COLORS.textDim}
+                  secureTextEntry={!showApiKey}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <YtDownloadBtn onPress={() => setShowApiKey(!showApiKey)}>
+                  <YtDownloadBtnText>{showApiKey ? '🙈' : '👁'}</YtDownloadBtnText>
+                </YtDownloadBtn>
+              </YtInputRow>
+              <GhostButton
+                onPress={() => {
+                  haptic.light();
+                  saveApiKey(activeAIProvider, editingApiKey);
+                  Alert.alert('Saved', `${activeAIProvider === 'deepseek' ? 'DeepSeek' : 'OpenAI'} API key updated.`);
+                }}
+                label="Save API Key"
+              />
+            </>
+          )}
+          {activeAIProvider === 'gemini' && (
+            <HintText>Gemini uses your backend account. No API key needed on device.</HintText>
+          )}
 
           {/* Notifications */}
           <SectionLabel>THE BELL</SectionLabel>
