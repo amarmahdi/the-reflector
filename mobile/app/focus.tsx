@@ -27,6 +27,7 @@ import { Screen, SectionLabel, PrimaryButton, GhostButton } from '@/components/u
 import CircularTimer from '@/components/CircularTimer';
 import FocusStats from '@/components/FocusStats';
 import { getFocusMotivation } from '@/lib/aiService';
+import AIMarkdown from '@/components/AIMarkdown';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -611,7 +612,7 @@ export default function FocusTimerScreen() {
             <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ width: '100%' }}>
               <AIFocusCard>
                 <AIFocusLabel>THE REFLECTOR</AIFocusLabel>
-                <AIFocusText>{aiMotivation}</AIFocusText>
+                <AIMarkdown>{aiMotivation}</AIMarkdown>
               </AIFocusCard>
             </Animated.View>
           )}
@@ -690,7 +691,7 @@ export default function FocusTimerScreen() {
               {aiCompletion && (
                 <AIFocusCard style={{ marginTop: 16 }}>
                   <AIFocusLabel>THE REFLECTOR</AIFocusLabel>
-                  <AIFocusText>{aiCompletion}</AIFocusText>
+                  <AIMarkdown>{aiCompletion}</AIMarkdown>
                 </AIFocusCard>
               )}
             </CompletionContainer>

@@ -20,6 +20,7 @@ import { onJournalEntryCreated, onGridFailed, onDayScarred } from '@/lib/appActi
 import { Screen, PrimaryButton, GhostButton, StyledInput } from '@/components/ui';
 import type { Consequence } from '@/lib/consequenceEngine';
 import { getLapseReflection } from '@/lib/aiService';
+import AIMarkdown from '@/components/AIMarkdown';
 // NOTE: Consequence type kept for compat; renamed conceptually to "Correction"
 
 // ── Blood-red background ─────────────────────────────────────────────────────
@@ -405,7 +406,7 @@ export default function TheFireScreen() {
             {aiReflection && (
               <Animated.View style={[styles.aiReflectionCard]}>
                 <Text style={styles.aiReflectionLabel}>THE REFLECTOR</Text>
-                <Text style={styles.aiReflectionText}>{aiReflection}</Text>
+                <AIMarkdown>{aiReflection}</AIMarkdown>
               </Animated.View>
             )}
             <PrimaryButton

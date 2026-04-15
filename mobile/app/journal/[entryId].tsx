@@ -11,6 +11,7 @@ import { haptic } from '@/lib/haptics';
 import MoodPicker from '@/components/MoodPicker';
 import { Screen, StyledInput, PrimaryButton, DangerButton } from '@/components/ui';
 import { getJournalInsight } from '@/lib/aiService';
+import AIMarkdown from '@/components/AIMarkdown';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -296,7 +297,7 @@ export default function JournalEntryDetailScreen() {
                 <>
                   <Divider />
                   <TagsLabel>THE REFLECTOR</TagsLabel>
-                  <EntryBody style={{ fontStyle: 'italic', fontSize: 13 }}>{aiInsight}</EntryBody>
+                  <AIMarkdown>{aiInsight}</AIMarkdown>
                 </>
               )}
 

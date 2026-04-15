@@ -15,6 +15,7 @@ import { Screen, SectionLabel, PrimaryButton } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 import { getDailyReview, refreshDailyReview, type AIDailyReview } from '@/lib/aiService';
 import { buildFullContext } from '@/lib/aiContext';
+import AIMarkdown from '@/components/AIMarkdown';
 
 // ── Styled Components ────────────────────────────────────────────────────────
 
@@ -262,7 +263,7 @@ export default function DailyReviewScreen() {
               <Animated.View entering={SlideInDown.delay(300).springify()}>
                 <VerdictCard>
                   <VerdictLabel>AI DAILY VERDICT</VerdictLabel>
-                  <VerdictText>{review.verdict}</VerdictText>
+                  <AIMarkdown>{review.verdict}</AIMarkdown>
                 </VerdictCard>
               </Animated.View>
 
@@ -272,7 +273,7 @@ export default function DailyReviewScreen() {
                   <SectionLabel>PATTERNS DETECTED</SectionLabel>
                   {review.patterns.map((p, i) => (
                     <ItemCard key={`p-${i}`}>
-                      <ItemText>• {p}</ItemText>
+                      <AIMarkdown>{`• ${p}`}</AIMarkdown>
                     </ItemCard>
                   ))}
                 </Animated.View>
@@ -284,7 +285,7 @@ export default function DailyReviewScreen() {
                   <SectionLabel>RECOMMENDATIONS</SectionLabel>
                   {review.recommendations.map((r, i) => (
                     <ItemCard key={`r-${i}`}>
-                      <ItemText>→ {r}</ItemText>
+                      <AIMarkdown>{`→ ${r}`}</AIMarkdown>
                     </ItemCard>
                   ))}
                 </Animated.View>

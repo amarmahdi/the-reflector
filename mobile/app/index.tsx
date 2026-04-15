@@ -43,6 +43,7 @@ import { haptic } from '@/lib/haptics';
 import { api } from '@/lib/apiClient';
 import { getCachedOracleVerdict } from '@/lib/oracle';
 import { getHomeGreeting } from '@/lib/aiService';
+import AIMarkdown from '@/components/AIMarkdown';
 import { useAlarmStore } from '@/store/useAlarmStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { useJournalStore } from '@/store/useJournalStore';
@@ -1076,7 +1077,7 @@ export default function HomeScreen() {
           {aiGreeting && (
             <AIGreetingCard>
               <AIGreetingLabel>THE REFLECTOR</AIGreetingLabel>
-              <AIGreetingText>{aiGreeting}</AIGreetingText>
+              <AIMarkdown>{aiGreeting}</AIMarkdown>
             </AIGreetingCard>
           )}
 

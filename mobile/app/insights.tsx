@@ -20,6 +20,7 @@ import WeeklySummaryCard from '@/components/WeeklySummaryCard';
 import { useWeekFocusMinutes } from '@/hooks/useStoreData';
 import { Screen, EmptyState, SectionHeader, Card, StatPill, ProgressBar } from '@/components/ui';
 import { getInsightNarrative } from '@/lib/aiService';
+import AIMarkdown from '@/components/AIMarkdown';
 
 // ── Styled Components ────────────────────────────────────────────────────────
 
@@ -420,7 +421,7 @@ export default function InsightsScreen() {
         {aiNarrative && (
           <AINarrativeCard>
             <AINarrativeLabel>AI ANALYSIS — LAST 7 DAYS</AINarrativeLabel>
-            <AINarrativeText>{aiNarrative}</AINarrativeText>
+            <AIMarkdown>{aiNarrative}</AIMarkdown>
           </AINarrativeCard>
         )}
 
