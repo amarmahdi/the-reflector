@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, Text, StyleSheet } from 'react-native';
+import { Pressable, Text, StyleSheet, Alert } from 'react-native';
 import styled from 'styled-components/native';
 import Animated, {
   useSharedValue,
@@ -17,7 +17,7 @@ import { useJournalStore } from '@/store/useJournalStore';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, REFLECTION_MIN_CHARS } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
 import { onJournalEntryCreated, onGridFailed, onDayScarred } from '@/lib/appActions';
-import { Screen, PrimaryButton, StyledInput } from '@/components/ui';
+import { Screen, PrimaryButton, GhostButton, StyledInput } from '@/components/ui';
 import type { Consequence } from '@/lib/consequenceEngine';
 // NOTE: Consequence type kept for compat; renamed conceptually to "Correction"
 
@@ -173,6 +173,7 @@ export default function TheFireScreen() {
   const grids = useReflectorStore((s) => s.grids);
   const routines = useReflectorStore((s) => s.routines);
   const markDayScarred = useReflectorStore((s) => s.markDayScarred);
+  const markDayCompleted = useReflectorStore((s) => s.markDayCompleted);
   const checkHardReset = useReflectorStore((s) => s.checkHardReset);
   const failGrid = useReflectorStore((s) => s.failGrid);
   const pacts = useReflectorStore((s) => s.pacts);
@@ -334,7 +335,34 @@ export default function TheFireScreen() {
         </Subtitle>
 
         <RoutineName>{routine?.title ?? 'Unknown Routine'}</RoutineName>
-        <DayLabel>Day {current.day.dayIndex} — Missed</DayLabel>
+        <DayLabel>Day {current.day.dayIndex} — Unmarked</DayLabel>
+
+        {/* "I actually did this" — late check-in */}
+        <GhostButton
+          onPress={() => {
+            Alert.alert(
+              'Late check-in',
+              `Mark Day ${current.day.dayIndex} of ${routine?.title ?? 'this routine'} as completed?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, I did it',
+                  onPress: () => {
+                    haptic.success();
+                    markDayCompleted(current.grid.id, current.day.dayIndex);
+                    if (currentIndex + 1 < lapsedEntries.length) {
+                      setCurrentIndex((prev) => prev + 1);
+                    } else {
+                      router.replace('/');
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+          label="✓ I actually did this — forgot to check in"
+          style={{ marginBottom: SPACING.lg }}
+        />
 
         {/* Pact confrontation — show their own words */}
         {currentPact && (

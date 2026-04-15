@@ -11,7 +11,6 @@ import {
   FlatList,
   TextInput as RNTextInput,
   ScrollView,
-  Modal,
   View,
   Text
 } from 'react-native';
@@ -948,17 +947,6 @@ export default function HomeScreen() {
     transform: [{ translateY: xpTranslateY.value }],
   }));
 
-  // Swear-to-override state
-  const [swearModalOpen, setSwearModalOpen] = useState(false);
-  const [swearOath, setSwearOath] = useState<string | null>(null);
-  const [swearLoading, setSwearLoading] = useState(false);
-  const [swearConfirmed, setSwearConfirmed] = useState(false);
-  const swearHoldProgress = useSharedValue(0);
-
-  const swearHoldStyle = useAnimatedStyle(() => ({
-    width: `${swearHoldProgress.value * 100}%`,
-  }));
-
   // Handle complete today for hero grid
   const handleCompleteToday = useCallback(() => {
     if (!heroGrid?.grid || !heroGrid.todayDay) return;
@@ -968,42 +956,23 @@ export default function HomeScreen() {
     showXpFloatAnim();
   }, [heroGrid]);
 
-  // Open swear modal when user tries to complete without checking sub-tasks
-  const handleSwearOverride = useCallback(async () => {
+  // Simple confirmation when user completes without all sub-tasks checked
+  const handleEarlyComplete = useCallback(() => {
     if (!heroGrid?.routine) return;
-    setSwearModalOpen(true);
-    setSwearOath(null);
-    setSwearConfirmed(false);
-    setSwearLoading(true);
-    try {
-      const res = await api<{ summary: string }>('/analyze/journal', {
-        method: 'POST',
-        body: {
-          journal_entries: [{
-            date: Date.now(),
-            body: `User is trying to mark "${heroGrid.routine.title}" as complete but has only done ${heroGrid.coreDone} of ${heroGrid.coreTotal} core tasks. They want to skip the proof and mark it done anyway.`,
-            mood: 'neutral',
-          }],
-          discipline_snapshots: [],
-          prompt_override: `You are The Reflector, a firm but wise spiritual accountability guide. The user is trying to mark their day as complete without finishing their core tasks. Write a short, serious 2-sentence testimony they must agree to. First sentence: make them acknowledge what they are doing honestly. Second sentence: remind them that this will be written in their record and they will answer for it. Be firm but not cruel. No exclamation marks. Return ONLY the testimony text.`,
+    Alert.alert(
+      'Complete today?',
+      `You’ve checked ${heroGrid.coreDone} of ${heroGrid.coreTotal} core tasks. Did you finish the rest outside the app?`,
+      [
+        { text: 'Not yet', style: 'cancel' },
+        {
+          text: 'Yes, I completed it',
+          onPress: () => {
+            handleCompleteToday();
+          },
         },
-      });
-      setSwearOath(res?.summary ?? 'I testify that I completed this day honestly. If I am being dishonest, this will be written in my record.');
-    } catch {
-      setSwearOath('I testify before my own conscience that I completed this day. If I am lying, let this record bear witness.');
-    }
-    setSwearLoading(false);
-  }, [heroGrid]);
-
-  const confirmSwear = useCallback(() => {
-    setSwearConfirmed(true);
-    haptic.warning();
-    setTimeout(() => {
-      handleCompleteToday();
-      setSwearModalOpen(false);
-      setSwearConfirmed(false);
-    }, 800);
-  }, [handleCompleteToday]);
+      ]
+    );
+  }, [heroGrid, handleCompleteToday]);
 
   // FAB toggle
   const toggleFab = useCallback(() => {
@@ -1187,8 +1156,8 @@ export default function HomeScreen() {
                 ) : heroGrid.todayDay ? (
                   <>
                     <GhostButton
-                      onPress={handleSwearOverride}
-                      label={`${heroGrid.coreDone}/${heroGrid.coreTotal} core tasks — Swear to complete`}
+                      onPress={handleEarlyComplete}
+                      label={`${heroGrid.coreDone}/${heroGrid.coreTotal} core tasks — Complete anyway`}
                     />
                   </>
                 ) : (
@@ -1422,45 +1391,6 @@ export default function HomeScreen() {
         </Animated.View>
       </FabContainer>
     </Screen>
-
-      {/* ─── Swear Modal ─── */}
-      <Modal
-        visible={swearModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSwearModalOpen(false)}
-      >
-        <SwearOverlay>
-          <SwearCard>
-            <SwearTitle>YOU HAVEN'T EARNED THIS.</SwearTitle>
-            <SwearSubtitle>
-              {heroGrid ? `${heroGrid.coreDone} of ${heroGrid.coreTotal} core tasks completed.` : ''}
-            </SwearSubtitle>
-
-            {swearLoading ? (
-              <SwearOathText>Summoning your oath...</SwearOathText>
-            ) : swearOath ? (
-              <SwearOathText>{swearOath}</SwearOathText>
-            ) : null}
-
-            {!swearLoading && swearOath && !swearConfirmed && (
-              <SwearButton onPress={confirmSwear}>
-                <SwearButtonText>I swear this is true.</SwearButtonText>
-              </SwearButton>
-            )}
-
-            {swearConfirmed && (
-              <SwearConfirmedText>Noted. The grid remembers.</SwearConfirmedText>
-            )}
-
-            {!swearConfirmed && (
-              <SwearCancelButton onPress={() => setSwearModalOpen(false)}>
-                <SwearCancelText>Go back and finish.</SwearCancelText>
-              </SwearCancelButton>
-            )}
-          </SwearCard>
-        </SwearOverlay>
-      </Modal>
     </>
   );
 }
