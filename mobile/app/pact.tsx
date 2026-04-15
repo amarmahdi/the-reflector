@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Pressable, Text, View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { Pressable, Text, View, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -14,8 +14,7 @@ import { useReflectorStore } from '@/store/useReflectorStore';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/theme';
 import { Screen, StyledInput } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
-import { useAuthStore } from '@/store/useAuthStore';
-import { api } from '@/lib/apiClient';
+import { getNiyyahText } from '@/lib/aiService';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -44,7 +43,6 @@ export default function ThePactScreen() {
   const [signed, setSigned] = useState(false);
   const [aiContract, setAiContract] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
 
   // Reset form when gridId changes (so we don't carry stale data)
   useEffect(() => {
@@ -112,7 +110,7 @@ export default function ThePactScreen() {
   const canAdvanceStep0 = why.trim().length >= MIN_WHY_CHARS;
   const canAdvanceStep1 = sacrifice.trim().length > 0;
   const canAdvanceStep2 = reward.trim().length > 0;
-  const canSign = signedName.trim().length > 0 && !signed;
+  const canSign = signedName.trim().length > 0 && !signed && !aiLoading;
 
   const whyCharsLeft = Math.max(0, MIN_WHY_CHARS - why.trim().length);
 
@@ -240,22 +238,15 @@ export default function ThePactScreen() {
         const contractFallback = `"I commit to completing ${routine?.title ?? 'this routine'} for 40 days.\n\nIf I fail, I sacrifice ${sacrifice.trim()}.\n\nIf I succeed, I earn ${reward.trim()}."`;
 
         // Fetch AI-rephrased contract on first mount of step 3
-        if (!aiContract && !aiLoading && isLoggedIn) {
+        if (!aiContract && !aiLoading) {
           setAiLoading(true);
-          api<{ summary: string }>('/analyze/journal', {
-            method: 'POST',
-            body: {
-              journal_entries: [{
-                date: Date.now(),
-                body: `Routine: ${routine?.title}. Why: ${why.trim()}. Sacrifice if I fail: ${sacrifice.trim()}. Reward if I finish: ${reward.trim()}.`,
-                mood: 'determined',
-              }],
-              discipline_snapshots: [],
-              prompt_override: `You are The Reflector, a wise and firm spiritual accountability guide. Rephrase this person's intention (Niyyah) into a solemn, meaningful commitment. Write it in first person ("I commit to..."). Keep it under 4 sentences. Be serious but compassionate. Use their exact routine name, sacrifice, and reward — but make the language feel like a sacred personal commitment. Return ONLY the commitment text, no preamble.`,
-            },
-          })
-            .then((res) => {
-              const text = res?.summary;
+          getNiyyahText(
+            routine?.title ?? 'this routine',
+            why.trim(),
+            sacrifice.trim(),
+            reward.trim(),
+          )
+            .then((text) => {
               if (text && text.length > 20) setAiContract(text);
             })
             .catch(() => {})
@@ -269,7 +260,10 @@ export default function ThePactScreen() {
 
             <View style={s.contractBox}>
               {aiLoading ? (
-                <Text style={s.contractText}>Preparing your Niyyah...</Text>
+                <>
+                  <ActivityIndicator size="small" color={COLORS.gold} style={{ marginBottom: 12 }} />
+                  <Text style={s.contractText}>Preparing your Niyyah...</Text>
+                </>
               ) : (
                 <Text style={s.contractText}>
                   {aiContract ?? contractFallback}
@@ -277,30 +271,34 @@ export default function ThePactScreen() {
               )}
             </View>
 
-            <Text style={s.signLabel}>Your name:</Text>
-            <StyledInput
-              value={signedName}
-              onChangeText={setSignedName}
-              placeholder="Type your full name"
-              style={s.nameInput}
-            />
+            {!aiLoading && (
+              <>
+                <Text style={s.signLabel}>Your name:</Text>
+                <StyledInput
+                  value={signedName}
+                  onChangeText={setSignedName}
+                  placeholder="Type your full name"
+                  style={s.nameInput}
+                />
 
-            {/* Hold-to-sign button */}
-            <GestureDetector gesture={longPressGesture}>
-              <Animated.View
-                style={[s.holdBtn, !canSign && s.disabledBtn, signed && s.signedBtn]}
-              >
-                {/* Progress fill */}
-                <Animated.View style={[s.holdProgress, animatedProgressStyle]} />
-                <Text style={s.holdBtnText}>
-                  {signed
-                    ? '✓ Niyyah Sealed'
-                    : isSigning
-                      ? 'Hold...'
-                      : 'Hold to Sign — 3 seconds'}
-                </Text>
-              </Animated.View>
-            </GestureDetector>
+                {/* Hold-to-sign button */}
+                <GestureDetector gesture={longPressGesture}>
+                  <Animated.View
+                    style={[s.holdBtn, !canSign && s.disabledBtn, signed && s.signedBtn]}
+                  >
+                    {/* Progress fill */}
+                    <Animated.View style={[s.holdProgress, animatedProgressStyle]} />
+                    <Text style={s.holdBtnText}>
+                      {signed
+                        ? '✓ Niyyah Sealed'
+                        : isSigning
+                          ? 'Hold...'
+                          : 'Hold to Sign — 3 seconds'}
+                    </Text>
+                  </Animated.View>
+                </GestureDetector>
+              </>
+            )}
 
             <Pressable onPress={() => { haptic.light(); setStep(2); }} style={s.backBtnCenter}>
               <Text style={s.backBtnText}>← Back</Text>

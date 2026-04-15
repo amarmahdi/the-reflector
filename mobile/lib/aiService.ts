@@ -420,3 +420,21 @@ export async function refreshHomeGreeting(): Promise<string | null> {
   await AsyncStorage.removeItem(cacheKey);
   return getHomeGreeting();
 }
+
+/**
+ * Generate Niyyah commitment text for the pact/covenant screen.
+ * Not cached — unique per routine creation.
+ */
+export async function getNiyyahText(
+  routineTitle: string,
+  why: string,
+  sacrifice: string,
+  reward: string,
+): Promise<string | null> {
+  const context = `Routine: ${routineTitle}. Why: ${why}. Sacrifice if I fail: ${sacrifice}. Reward if I finish: ${reward}.`;
+
+  const prompt = `Rephrase this person's intention (Niyyah) into a solemn, meaningful commitment. Write it in first person ("I commit to..."). Keep it under 4 sentences. Be serious but compassionate. Use their exact routine name, sacrifice, and reward — but make the language feel like a sacred personal commitment. Return ONLY the commitment text, no preamble, no quotes, no markdown.`;
+
+  const res = await callAI(prompt, context);
+  return res?.summary?.replace(/^["']|["']$/g, '').trim() ?? null;
+}
